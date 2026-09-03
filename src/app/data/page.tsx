@@ -51,6 +51,13 @@ export default function DataPage() {
         </p>
       </div>
 
+      <section className="rounded-2xl bg-accent-soft/60 px-4 py-3 text-sm text-ink">
+        <p className="font-semibold">Install on iPhone</p>
+        <p className="mt-1 text-ink-muted">
+          Safari → Share → <strong>Add to Home Screen</strong> for a full-screen app with offline shell caching.
+        </p>
+      </section>
+
       {message ? (
         <div className="rounded-xl bg-accent-soft px-4 py-3 text-sm text-accent">{message}</div>
       ) : null}

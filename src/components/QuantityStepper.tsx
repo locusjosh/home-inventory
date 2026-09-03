@@ -11,6 +11,8 @@ type Props = {
 
 export function QuantityStepper({ value, onChange, unit, compact }: Props) {
   const bump = (delta: number) => onChange(Math.max(0, value + delta));
+  const btn = compact ? "h-11 w-11" : "h-12 w-12";
+  const inputW = compact ? "w-16" : "w-[4.5rem]";
 
   return (
     <div
@@ -22,7 +24,7 @@ export function QuantityStepper({ value, onChange, unit, compact }: Props) {
       <button
         type="button"
         aria-label="Decrease quantity"
-        className="flex h-11 w-11 items-center justify-center rounded-xl bg-surface text-xl font-semibold text-ink hover:bg-surface-3 active:scale-95"
+        className={`flex ${btn} items-center justify-center rounded-xl bg-surface text-xl font-semibold text-ink hover:bg-surface-3 active:scale-95`}
         onClick={() => bump(-1)}
       >
         −
@@ -33,7 +35,7 @@ export function QuantityStepper({ value, onChange, unit, compact }: Props) {
         min={0}
         step="any"
         aria-label="Quantity"
-        className="h-11 w-16 rounded-xl border-0 bg-transparent text-center text-base font-semibold text-ink outline-none focus:ring-2 focus:ring-accent/40"
+        className={`h-12 ${inputW} rounded-xl border-0 bg-transparent text-center text-base font-semibold text-ink outline-none focus:ring-2 focus:ring-accent/40`}
         value={formatQty(value)}
         onChange={(e) => {
           const n = parseFloat(e.target.value);
@@ -44,7 +46,7 @@ export function QuantityStepper({ value, onChange, unit, compact }: Props) {
       <button
         type="button"
         aria-label="Increase quantity"
-        className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-xl font-semibold text-white hover:opacity-90 active:scale-95"
+        className={`flex ${btn} items-center justify-center rounded-xl bg-accent text-xl font-semibold text-white hover:opacity-90 active:scale-95`}
         onClick={() => bump(1)}
       >
         +

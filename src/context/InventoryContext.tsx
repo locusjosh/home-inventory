@@ -10,15 +10,18 @@ import React, {
 } from "react";
 import type { InventoryItem, InventoryState, ItemDraft } from "@/lib/types";
 import { importState, loadState, resetToSeed, saveState } from "@/lib/storage";
-import { isLowStock, uid } from "@/lib/utils";
+import { isLowStock, needsCount, uid } from "@/lib/utils";
 
 type InventoryContextValue = {
   ready: boolean;
   items: InventoryItem[];
   activeItems: InventoryItem[];
   lowStockItems: InventoryItem[];
+  needsCountItems: InventoryItem[];
   folderCounts: Record<string, number>;
   updateQuantity: (id: string, quantity: number) => void;
+  confirmCount: (id: string, quantity: number) => void;
+  markRestocked: (id: string) => void;
   updateItem: (id: string, patch: Partial<InventoryItem>) => void;
   addItem: (draft: ItemDraft) => InventoryItem;
   archiveItem: (id: string, archived?: boolean) => void;
@@ -55,6 +58,11 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
     [activeItems]
   );
 
+  const needsCountItems = useMemo(
+    () => activeItems.filter(needsCount).sort((a, b) => a.name.localeCompare(b.name)),
+    [activeItems]
+  );
+
   const folderCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const i of activeItems) {
@@ -70,6 +78,39 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       persist({
         ...state,
         items: state.items.map((i) => (i.id === id ? { ...i, quantity: q } : i)),
+      });
+    },
+    [persist, state]
+  );
+
+  /** Confirm quantity in count mode and stamp lastCountedAt. */
+  const confirmCount = useCallback(
+    (id: string, quantity: number) => {
+      if (!state) return;
+      const q = Math.max(0, Math.round(quantity * 100) / 100);
+      const now = new Date().toISOString();
+      persist({
+        ...state,
+        items: state.items.map((i) =>
+          i.id === id ? { ...i, quantity: q, lastCountedAt: now } : i
+        ),
+      });
+    },
+    [persist, state]
+  );
+
+  /** Set quantity to minLevel when below min (bought from empty/low). */
+  const markRestocked = useCallback(
+    (id: string) => {
+      if (!state) return;
+      persist({
+        ...state,
+        items: state.items.map((i) => {
+          if (i.id !== id) return i;
+          const min = i.minLevel ?? 0;
+          const nextQty = i.quantity < min ? Math.max(min, 1) : i.quantity + 1;
+          return { ...i, quantity: nextQty };
+        }),
       });
     },
     [persist, state]
@@ -102,6 +143,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
         notes: draft.notes,
         vendor: draft.vendor,
         archived: false,
+        lastCountedAt: null,
       };
       if (!state) {
         const next = { items: [item], version: 1, seededAt: new Date().toISOString() };
@@ -163,8 +205,11 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
     items,
     activeItems,
     lowStockItems,
+    needsCountItems,
     folderCounts,
     updateQuantity,
+    confirmCount,
+    markRestocked,
     updateItem,
     addItem,
     archiveItem,

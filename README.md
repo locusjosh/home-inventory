@@ -2,61 +2,20 @@
 
 **Live:** https://locusjosh.github.io/home-inventory/
 
-> Static export on GitHub Pages with `basePath: /home-inventory`. Use Next.js `Link` / `useRouter` (basePath is applied automatically). Seed data is imported at build time from `data/seed.json`.
+Count mode, PWA, restock shop links, Use 1, Needs count, sort options. Static export basePath /home-inventory.
 
-Mobile-first home inventory webapp (Sortly replacement) built with Next.js App Router, TypeScript, and Tailwind CSS.
-
+See Features in app: /count, /restock, Add to Home Screen tip on /data.
 ## Features
+- Count mode (/count): room-by-room, stamps lastCountedAt
+- Stock home: Needs count, summary strip, sort options
+- Use 1; Restock shop links + Mark restocked + Copy list
+- PWA: manifest, icons, Add to Home Screen tip, shell SW
+- Import/Export JSON+CSV, low stock, folders, dark mode
 
-- **Stock count mode** — browse by folder with large +/- controls and typed quantities; autosaves to localStorage
-- **Folders** — Bathroom, Cleaning, Family, Kitchen, Laundry, Maintenance, Outside, Suggested Items
-- **Low stock** — items where quantity < minLevel (skips null min levels), with nav badge
-- **Search** — filter by name
-- **Item detail** — edit name, folder, quantity, unit, minLevel, price, vendor, notes, attributes; archive or delete
-- **Add items** — create new entries
-- **Suggested Items** — wishlist with one-tap move into a real folder
-- **Restock list** — low-stock grouped by vendor with notes/price
-- **Import / Export** — JSON import, JSON + CSV export, reset to seed
-- **Dark mode** — optional toggle (persisted)
+## Deploy
 
-## Seed data
-
-`data/seed.json` contains **97** items. Duplicate Sortly SIDs were uniquified (`id` gets `-2` suffix; original kept in `sortlyId`):
-
-- Disposable Forks / Disposable Spoons (`SBO59T3193`)
-- Detergent Pods / Scent Booster Beads (`SBO59T3199`)
-
-## Run locally
-
-```bash
-npm install
-npm run dev
-```
-
-Open http://localhost:3000/home-inventory/
-
-```bash
-npm run build
-# writes static site to out/
-touch out/.nojekyll
-npx gh-pages -d out --repo https://github.com/locusjosh/home-inventory.git
-```
+npm run build then touch out/.nojekyll then gh-pages -d out
 
 ## Tech
 
-- Next.js 15 (App Router) + React 19 + TypeScript
-- Static export (`output: 'export'`) with `basePath` / `assetPrefix` `/home-inventory`
-- Tailwind CSS
-- Client-side persistence via localStorage (seeded on first load)
-- No auth / no backend
-
-## Screens
-
-| Route | Purpose |
-|-------|---------|
-| `/` | Stock counts, folder chips, search |
-| `/low-stock` | Low-stock list |
-| `/restock` | Shopping / restock list by vendor |
-| `/items/edit?id=…` | Edit item details |
-| `/add` | Add item |
-| `/data` | Export / import / reset |
+Next.js 15 static export, basePath /home-inventory, Tailwind, localStorage

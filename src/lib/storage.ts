@@ -18,6 +18,7 @@ function normalizeItem(raw: Partial<InventoryItem> & { id: string; name: string 
     notes: raw.notes ?? null,
     vendor: raw.vendor ?? null,
     archived: Boolean(raw.archived),
+    lastCountedAt: raw.lastCountedAt ?? null,
   };
 }
 

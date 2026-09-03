@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { InventoryItem } from "@/lib/types";
-import { isLowStock } from "@/lib/utils";
+import { isLowStock, needsCount } from "@/lib/utils";
 import { QuantityStepper } from "./QuantityStepper";
 
 type Props = {
@@ -14,6 +14,7 @@ type Props = {
 
 export function ItemCard({ item, onQuantity, showMove, onMove }: Props) {
   const low = isLowStock(item);
+  const needs = needsCount(item);
 
   return (
     <div
@@ -39,14 +40,28 @@ export function ItemCard({ item, onQuantity, showMove, onMove }: Props) {
             ) : item.minLevel !== null ? (
               <span>min {item.minLevel}</span>
             ) : null}
+            {needs ? (
+              <span className="rounded-md bg-accent-soft px-2 py-0.5 font-medium text-accent">
+                Needs count
+              </span>
+            ) : null}
             {item.vendor ? <span>{item.vendor}</span> : null}
           </div>
         </div>
-        <QuantityStepper
-          value={item.quantity}
-          onChange={(q) => onQuantity(item.id, q)}
-          unit={item.unit}
-        />
+        <div className="flex flex-col items-end gap-2">
+          <QuantityStepper
+            value={item.quantity}
+            onChange={(q) => onQuantity(item.id, q)}
+            unit={item.unit}
+          />
+          <button
+            type="button"
+            onClick={() => onQuantity(item.id, Math.max(0, item.quantity - 1))}
+            className="rounded-xl bg-surface-2 px-3 py-2 text-xs font-semibold text-ink-muted hover:bg-surface-3 hover:text-ink active:scale-95"
+          >
+            Use 1
+          </button>
+        </div>
       </div>
       {showMove && onMove ? (
         <button

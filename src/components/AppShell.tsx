@@ -7,6 +7,7 @@ import { ThemeToggle } from "./ThemeToggle";
 
 const nav = [
   { href: "/", label: "Stock" },
+  { href: "/count", label: "Count" },
   { href: "/low-stock", label: "Low" },
   { href: "/restock", label: "Restock" },
   { href: "/add", label: "Add" },
@@ -15,8 +16,9 @@ const nav = [
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { ready, lowStockItems } = useInventory();
+  const { ready, lowStockItems, needsCountItems } = useInventory();
   const low = lowStockItems.length;
+  const needs = needsCountItems.length;
 
   return (
     <div className="min-h-dvh bg-surface-2 text-ink">
@@ -36,7 +38,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               item.href === "/"
                 ? pathname === "/"
                 : pathname.startsWith(item.href);
-            const showBadge = item.href === "/low-stock" && low > 0;
+            const showBadge =
+              (item.href === "/low-stock" && low > 0) ||
+              (item.href === "/count" && needs > 0);
+            const badge = item.href === "/count" ? needs : low;
             return (
               <Link
                 key={item.href}
@@ -50,7 +55,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 {item.label}
                 {showBadge ? (
                   <span className="ml-1.5 inline-flex min-w-5 items-center justify-center rounded-full bg-white/20 px-1.5 text-[11px] tabular-nums">
-                    {low}
+                    {badge}
                   </span>
                 ) : null}
               </Link>

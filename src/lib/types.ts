@@ -24,6 +24,18 @@ export const FOLDERS: FolderName[] = [
   "Suggested Items",
 ];
 
+/** Folders shown first in count mode (Suggested Items last). */
+export const COUNT_FOLDERS: FolderName[] = [
+  "Bathroom",
+  "Cleaning",
+  "Family",
+  "Kitchen",
+  "Laundry",
+  "Maintenance",
+  "Outside",
+  "Suggested Items",
+];
+
 export type InventoryItem = {
   id: string;
   sortlyId?: string | null;
@@ -38,6 +50,8 @@ export type InventoryItem = {
   notes: string | null;
   vendor: string | null;
   archived?: boolean;
+  /** ISO timestamp set when quantity confirmed in count mode */
+  lastCountedAt?: string | null;
 };
 
 export type InventoryState = {
