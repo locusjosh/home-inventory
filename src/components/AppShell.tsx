@@ -10,6 +10,7 @@ const nav = [
   { href: "/count", label: "Count" },
   { href: "/low-stock", label: "Low" },
   { href: "/restock", label: "Restock" },
+  { href: "/receipt", label: "Receipt" },
   { href: "/add", label: "Add" },
   { href: "/assist", label: "Assist", accent: true },
   { href: "/data", label: "Data" },

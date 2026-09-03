@@ -69,12 +69,35 @@ export type Purchase = {
   promoNotes?: string | null; // "buy 4 save 33%", coupon, etc.
   vendor?: string | null;
   unitPricePaid?: number | null; // computed pricePaid/qty
-  source?: "restock" | "chat" | "manual";
+  source?: "restock" | "chat" | "manual" | "receipt";
+  /** Links purchase lines from one scanned receipt */
+  receiptId?: string;
+  /** Original OCR line text */
+  rawLine?: string;
+  /** OCR confidence 0–100 for this line / receipt */
+  ocrConfidence?: number;
+  /** Optional compressed thumbnail dataURL (prefer omit if storage tight) */
+  receiptImageId?: string;
+};
+
+/** Receipt metadata without full image (OCR text + vendor/date). */
+export type ReceiptRecord = {
+  id: string;
+  vendor: string | null;
+  date: string; // ISO date or purchasedAt
+  rawText: string;
+  createdAt: string;
+  /** Optional tiny compressed thumbnail (dataURL); omit when large */
+  thumbnailDataUrl?: string | null;
+  lineCount?: number;
+  tax?: number | null;
+  total?: number | null;
 };
 
 export type InventoryState = {
   items: InventoryItem[];
   purchases: Purchase[];
+  receipts?: ReceiptRecord[];
   version: number;
   seededAt?: string;
 };
@@ -102,7 +125,12 @@ export type LogPurchaseInput = {
   promoNotes?: string | null;
   vendor?: string | null;
   unit?: string;
-  source?: "restock" | "chat" | "manual";
+  source?: "restock" | "chat" | "manual" | "receipt";
   /** Also bump qty / mark restocked (default true for restock/chat) */
   alsoRestock?: boolean;
+  purchasedAt?: string;
+  receiptId?: string;
+  rawLine?: string;
+  ocrConfidence?: number;
+  receiptImageId?: string;
 };

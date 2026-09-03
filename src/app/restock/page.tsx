@@ -80,15 +80,23 @@ export default function RestockPage() {
               : ""}
           </p>
         </div>
-        {lowStockItems.length > 0 ? (
-          <button
-            type="button"
-            onClick={() => void copyList()}
-            className="shrink-0 rounded-xl bg-surface-2 px-3 py-2.5 text-sm font-medium text-ink"
+        <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+          <Link
+            href="/receipt"
+            className="rounded-xl bg-accent px-3 py-2.5 text-center text-sm font-semibold text-white"
           >
-            {copied ? "Copied!" : "Copy list"}
-          </button>
-        ) : null}
+            Scan receipt
+          </Link>
+          {lowStockItems.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => void copyList()}
+              className="rounded-xl bg-surface-2 px-3 py-2.5 text-sm font-medium text-ink"
+            >
+              {copied ? "Copied!" : "Copy list"}
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {byVendor.map(([vendor, items]) => (
@@ -183,7 +191,13 @@ export default function RestockPage() {
 
       {lowStockItems.length === 0 ? (
         <div className="rounded-2xl bg-surface p-8 text-center text-ink-muted shadow-soft">
-          Restock list is empty.
+          <p>Restock list is empty.</p>
+          <Link
+            href="/receipt"
+            className="mt-3 inline-block rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white"
+          >
+            Scan a receipt
+          </Link>
         </div>
       ) : null}
 

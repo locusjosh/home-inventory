@@ -7,16 +7,17 @@ import { InventoryChat } from "@/components/InventoryChat";
 import { downloadBlob, itemsToCsv } from "@/lib/utils";
 
 export default function DataPage() {
-  const { items, purchases, activeItems, importJson, reset } = useInventory();
+  const { items, purchases, receipts, activeItems, importJson, reset } = useInventory();
   const fileRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   const exportJson = () => {
     const payload = {
-      version: 2,
+      version: 3,
       exportedAt: new Date().toISOString(),
       items,
       purchases,
+      receipts,
     };
     downloadBlob(
       `home-inventory-${new Date().toISOString().slice(0, 10)}.json`,

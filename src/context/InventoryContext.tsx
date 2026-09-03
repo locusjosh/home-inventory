@@ -14,6 +14,7 @@ import type {
   ItemDraft,
   LogPurchaseInput,
   Purchase,
+  ReceiptRecord,
 } from "@/lib/types";
 import { importState, loadState, resetToSeed, saveState } from "@/lib/storage";
 import { isLowStock, needsCount, uid } from "@/lib/utils";
@@ -22,6 +23,7 @@ type InventoryContextValue = {
   ready: boolean;
   items: InventoryItem[];
   purchases: Purchase[];
+  receipts: ReceiptRecord[];
   activeItems: InventoryItem[];
   lowStockItems: InventoryItem[];
   needsCountItems: InventoryItem[];
@@ -30,6 +32,11 @@ type InventoryContextValue = {
   confirmCount: (id: string, quantity: number) => void;
   markRestocked: (id: string) => void;
   logPurchase: (input: LogPurchaseInput) => Purchase | null;
+  /** Batch-log purchases from a receipt confirm (one persist). */
+  confirmReceiptAllocation: (args: {
+    receipt: Omit<ReceiptRecord, "id" | "createdAt"> & { id?: string };
+    lines: LogPurchaseInput[];
+  }) => { receiptId: string; purchases: Purchase[] } | null;
   getPurchasesForItem: (itemId: string) => Purchase[];
   getLastPurchase: (itemId: string) => Purchase | null;
   updateItem: (id: string, patch: Partial<InventoryItem>) => void;
@@ -58,6 +65,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
 
   const items = useMemo(() => state?.items ?? [], [state?.items]);
   const purchases = useMemo(() => state?.purchases ?? [], [state?.purchases]);
+  const receipts = useMemo(() => state?.receipts ?? [], [state?.receipts]);
 
   const activeItems = useMemo(
     () => items.filter((i) => !i.archived),
@@ -94,7 +102,6 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
     [persist, state]
   );
 
-  /** Confirm quantity in count mode and stamp lastCountedAt. */
   const confirmCount = useCallback(
     (id: string, quantity: number) => {
       if (!state) return;
@@ -110,7 +117,6 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
     [persist, state]
   );
 
-  /** Set quantity to minLevel when below min (bought from empty/low). */
   const markRestocked = useCallback(
     (id: string) => {
       if (!state) return;
@@ -143,19 +149,16 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
     [getPurchasesForItem]
   );
 
-  const logPurchase = useCallback(
-    (input: LogPurchaseInput): Purchase | null => {
-      if (!state) return null;
-      const item = state.items.find((i) => i.id === input.itemId);
-      if (!item) return null;
+  const buildPurchase = useCallback(
+    (input: LogPurchaseInput, item: InventoryItem): Purchase => {
       const qty = Math.max(0.01, input.qty || 1);
       const pricePaid = Math.max(0, input.pricePaid);
       const unitPricePaid = Math.round((pricePaid / qty) * 100) / 100;
       const vendor = (input.vendor ?? item.lastVendor ?? item.vendor ?? null) || null;
-      const purchase: Purchase = {
+      return {
         id: uid("purchase"),
         itemId: item.id,
-        purchasedAt: new Date().toISOString(),
+        purchasedAt: input.purchasedAt || new Date().toISOString(),
         qty,
         unit: input.unit || item.unit || "units",
         pricePaid,
@@ -166,35 +169,107 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
         vendor,
         unitPricePaid,
         source: input.source ?? "manual",
+        receiptId: input.receiptId,
+        rawLine: input.rawLine,
+        ocrConfidence: input.ocrConfidence,
+        receiptImageId: input.receiptImageId,
       };
+    },
+    []
+  );
 
+  const applyPurchaseToItem = (
+    i: InventoryItem,
+    purchase: Purchase,
+    alsoRestock: boolean
+  ): InventoryItem => {
+    if (i.id !== purchase.itemId) return i;
+    let nextQty = i.quantity;
+    if (alsoRestock) {
+      const min = i.minLevel ?? 0;
+      nextQty = Math.max(
+        i.quantity + purchase.qty,
+        i.quantity < min ? Math.max(min, 1) : i.quantity + purchase.qty
+      );
+    }
+    return {
+      ...i,
+      quantity: Math.round(nextQty * 100) / 100,
+      price: purchase.unitPricePaid ?? i.price,
+      vendor: purchase.vendor ?? i.vendor,
+      lastVendor: purchase.vendor ?? i.lastVendor ?? i.vendor,
+    };
+  };
+
+  const logPurchase = useCallback(
+    (input: LogPurchaseInput): Purchase | null => {
+      if (!state) return null;
+      const item = state.items.find((i) => i.id === input.itemId);
+      if (!item) return null;
+      const purchase = buildPurchase(input, item);
       const alsoRestock = input.alsoRestock !== false;
-      const nextItems = state.items.map((i) => {
-        if (i.id !== item.id) return i;
-        let nextQty = i.quantity;
-        if (alsoRestock) {
-          const min = i.minLevel ?? 0;
-          // Prefer adding purchased qty when logging a buy
-          nextQty = Math.max(i.quantity + qty, i.quantity < min ? Math.max(min, 1) : i.quantity + qty);
-        }
-        return {
-          ...i,
-          quantity: Math.round(nextQty * 100) / 100,
-          price: unitPricePaid,
-          vendor: vendor ?? i.vendor,
-          lastVendor: vendor ?? i.lastVendor ?? i.vendor,
-        };
-      });
-
+      const nextItems = state.items.map((i) =>
+        applyPurchaseToItem(i, purchase, alsoRestock)
+      );
       persist({
         ...state,
-        version: Math.max(state.version, 2),
+        version: Math.max(state.version, 3),
         items: nextItems,
         purchases: [purchase, ...(state.purchases ?? [])],
+        receipts: state.receipts ?? [],
       });
       return purchase;
     },
-    [persist, state]
+    [buildPurchase, persist, state]
+  );
+
+  const confirmReceiptAllocation = useCallback(
+    (args: {
+      receipt: Omit<ReceiptRecord, "id" | "createdAt"> & { id?: string };
+      lines: LogPurchaseInput[];
+    }) => {
+      if (!state) return null;
+      const receiptId = args.receipt.id || uid("receipt");
+      const createdAt = new Date().toISOString();
+      const receipt: ReceiptRecord = {
+        id: receiptId,
+        vendor: args.receipt.vendor ?? null,
+        date: args.receipt.date,
+        rawText: args.receipt.rawText || "",
+        createdAt,
+        thumbnailDataUrl: args.receipt.thumbnailDataUrl ?? null,
+        lineCount: args.receipt.lineCount ?? args.lines.length,
+        tax: args.receipt.tax ?? null,
+        total: args.receipt.total ?? null,
+      };
+
+      const newPurchases: Purchase[] = [];
+      let nextItems = [...state.items];
+
+      for (const input of args.lines) {
+        const item = nextItems.find((i) => i.id === input.itemId);
+        if (!item) continue;
+        const purchase = buildPurchase(
+          { ...input, receiptId, source: input.source ?? "receipt" },
+          item
+        );
+        const alsoRestock = input.alsoRestock !== false;
+        nextItems = nextItems.map((i) =>
+          applyPurchaseToItem(i, purchase, alsoRestock)
+        );
+        newPurchases.push(purchase);
+      }
+
+      persist({
+        ...state,
+        version: Math.max(state.version, 3),
+        items: nextItems,
+        purchases: [...newPurchases, ...(state.purchases ?? [])],
+        receipts: [receipt, ...(state.receipts ?? [])],
+      });
+      return { receiptId, purchases: newPurchases };
+    },
+    [buildPurchase, persist, state]
   );
 
   const updateItem = useCallback(
@@ -231,7 +306,8 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
         const next = {
           items: [item],
           purchases: [],
-          version: 2,
+          receipts: [],
+          version: 3,
           seededAt: new Date().toISOString(),
         };
         persist(next);
@@ -285,17 +361,19 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       persist({
         items: nextItems,
         purchases: state?.purchases ?? [],
-        version: 2,
+        receipts: state?.receipts ?? [],
+        version: 3,
         seededAt: new Date().toISOString(),
       });
     },
-    [persist, state?.purchases]
+    [persist, state?.purchases, state?.receipts]
   );
 
   const value: InventoryContextValue = {
     ready: state !== null,
     items,
     purchases,
+    receipts,
     activeItems,
     lowStockItems,
     needsCountItems,
@@ -304,6 +382,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
     confirmCount,
     markRestocked,
     logPurchase,
+    confirmReceiptAllocation,
     getPurchasesForItem,
     getLastPurchase,
     updateItem,

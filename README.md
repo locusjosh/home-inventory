@@ -1,31 +1,22 @@
 # Home Inventory
 
-**Live:** https://locusjosh.github.io/home-inventory/
-
-Count mode, PWA, restock shop links, **Jarvis Assist** (voice + chat), **purchase tracking** for inflation. Static export basePath `/home-inventory`.
+Live: https://locusjosh.github.io/home-inventory/
+Receipt OCR scan at /receipt (on-device tesseract.js).
 
 ## Features
-- **Assist** (/assist): on-device voice + chat (Web Speech, no cloud AI)
-- **Purchase tracking**: log price paid / list / promo from Restock (2 taps) or chat
-- Count mode (/count): room-by-room, stamps lastCountedAt
-- Stock home: Needs count, summary strip, sort options
-- Use 1; Restock shop links + Mark restocked + Copy list
-- PWA: manifest, icons, Add to Home Screen tip, shell SW
-- Import/Export JSON (incl. purchases) + CSV
+- Receipt (/receipt): photo/upload, on-device OCR, fuzzy-match, confirm purchases
+- Assist (/assist): voice + chat
+- Purchase tracking from Restock, chat, or receipt
+- Count mode, PWA, import/export JSON (purchases + receipt metadata)
 
-## iPhone tips
-- Safari ← Allow Microphone for voice
-- **Silent Mode** (ringer switch) can mute spoken replies — turn it off to hear TTS
-- Tap mic to toggle listen (no hold-to-talk)
+## Receipt OCR
+- On-device only; images never uploaded
+- tesseract.js worker/core/lang from jsDelivr CDN
+- OCR text + metadata stored; optional thumbnail; drops image if storage tight
+- Review matches before confirm; lighting and flat receipts help accuracy
 
 ## Deploy
-
-```bash
-npm run build
-touch out/.nojekyll
-npx gh-pages -d out -r https://github.com/locusjosh/home-inventory.git
-```
+Build static export, touch out/.nojekyll, publish out/ to gh-pages branch of locusjosh/home-inventory.
 
 ## Tech
-
-Next.js 15 static export, basePath /home-inventory, Tailwind, localStorage
+Next.js 15 static export, basePath /home-inventory, Tailwind, localStorage, tesseract.js dynamic import on /receipt
