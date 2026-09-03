@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --surface: 255 255 255;
+  --surface-2: 244 246 248;
+  --surface-3: 226 232 240;
+  --ink: 15 23 42;
+  --ink-muted: 100 116 139;
+  --accent: 37 99 235;
+  --accent-soft: 219 234 254;
+  --danger: 220 38 38;
+  --warn: 217 119 6;
+}
+
+html.dark {
+  --surface: 15 23 42;
+  --surface-2: 2 6 23;
+  --surface-3: 30 41 59;
+  --ink: 241 245 249;
+  --ink-muted: 148 163 184;
+  --accent: 96 165 250;
+  --accent-soft: 30 58 138;
+  --danger: 248 113 113;
+  --warn: 251 191 36;
+}
+
+html,
+body {
+  max-width: 100vw;
+  min-height: 100%;
+}
+
+body {
+  background: rgb(var(--surface-2));
+  color: rgb(var(--ink));
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
