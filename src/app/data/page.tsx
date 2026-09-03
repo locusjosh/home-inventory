@@ -7,15 +7,16 @@ import { InventoryChat } from "@/components/InventoryChat";
 import { downloadBlob, itemsToCsv } from "@/lib/utils";
 
 export default function DataPage() {
-  const { items, activeItems, importJson, reset } = useInventory();
+  const { items, purchases, activeItems, importJson, reset } = useInventory();
   const fileRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   const exportJson = () => {
     const payload = {
-      version: 1,
+      version: 2,
       exportedAt: new Date().toISOString(),
       items,
+      purchases,
     };
     downloadBlob(
       `home-inventory-${new Date().toISOString().slice(0, 10)}.json`,
@@ -48,7 +49,8 @@ export default function DataPage() {
       <div>
         <h1 className="text-xl font-semibold text-ink">Data</h1>
         <p className="text-sm text-ink-muted">
-          {activeItems.length} active · {items.length} total (incl. archived). Stored in
+          {activeItems.length} active · {items.length} total (incl. archived)
+          · {purchases.length} purchase{purchases.length === 1 ? "" : "s"}. Stored in
           localStorage, seeded from seed.json on first visit.
         </p>
       </div>
@@ -57,7 +59,7 @@ export default function DataPage() {
         <p className="font-semibold">Install on iPhone</p>
         <p className="mt-1 text-ink-muted">
           Safari → Share → <strong>Add to Home Screen</strong> for a full-screen app with offline shell caching.
-          Allow microphone for voice Assist.
+          Allow microphone for voice Assist. Turn off the Silent switch if spoken replies are muted.
         </p>
       </section>
 

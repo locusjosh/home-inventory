@@ -6,16 +6,27 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useInventory } from "@/context/InventoryContext";
 import { FOLDERS, type Attribute } from "@/lib/types";
 import { QuantityStepper } from "@/components/QuantityStepper";
+import { LogPurchaseSheet } from "@/components/LogPurchaseSheet";
+import { formatPrice } from "@/lib/utils";
 
 export default function ItemDetailPage() {
   const searchParams = useSearchParams();
   const id = searchParams.get("id") ?? "";
   const router = useRouter();
-  const { items, updateItem, updateQuantity, archiveItem, deleteItem } = useInventory();
+  const {
+    items,
+    updateItem,
+    updateQuantity,
+    archiveItem,
+    deleteItem,
+    logPurchase,
+    getPurchasesForItem,
+  } = useInventory();
   const item = items.find((i) => i.id === id);
 
   const [attrName, setAttrName] = useState("");
   const [attrOption, setAttrOption] = useState("");
+  const [showPurchase, setShowPurchase] = useState(false);
 
   const attrs = useMemo(() => item?.attributes ?? [], [item]);
 
@@ -152,6 +163,110 @@ export default function ItemDetailPage() {
           />
         </label>
 
+
+        <div className="space-y-2 border-t border-surface-3 pt-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm font-medium text-ink">Purchase history</span>
+            <button
+              type="button"
+              onClick={() => setShowPurchase(true)}
+              className="rounded-lg bg-accent-soft px-2.5 py-1.5 text-xs font-semibold text-accent"
+            >
+              Log purchase
+            </button>
+          </div>
+          {(() => {
+            const hist = getPurchasesForItem(item.id);
+            if (!hist.length) {
+              return (
+                <p className="text-sm text-ink-muted">
+                  No purchases logged yet. Track price paid for inflation.
+                </p>
+              );
+            }
+            return (
+              <ul className="space-y-2">
+                {hist.slice(0, 12).map((p, idx) => {
+                  const prev = hist[idx + 1];
+                  let trend: string | null = null;
+                  if (
+                    prev &&
+                    prev.unitPricePaid != null &&
+                    p.unitPricePaid != null &&
+                    prev.unitPricePaid > 0
+                  ) {
+                    const pct =
+                      ((p.unitPricePaid - prev.unitPricePaid) / prev.unitPricePaid) *
+                      100;
+                    if (Math.abs(pct) >= 0.5) {
+                      const arrow = pct > 0 ? "↑" : "↓";
+                      const color = pct > 0 ? "text-danger" : "text-emerald-600";
+                      trend = `${arrow} ${Math.abs(pct).toFixed(0)}%`;
+                      return (
+                        <li
+                          key={p.id}
+                          className="rounded-xl bg-surface-2 px-3 py-2 text-sm"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <div className="font-medium text-ink">
+                                {formatPrice(p.pricePaid)}
+                                <span className="ml-1 font-normal text-ink-muted">
+                                  ({formatPrice(p.unitPricePaid)}/{p.unit} × {p.qty})
+                                </span>
+                              </div>
+                              <div className="text-xs text-ink-muted">
+                                {new Date(p.purchasedAt).toLocaleDateString(undefined, {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                })}
+                                {p.vendor ? ` · ${p.vendor}` : ""}
+                                {p.promoNotes ? ` · ${p.promoNotes}` : ""}
+                                {p.discountPercent != null
+                                  ? ` · ${p.discountPercent}% off`
+                                  : ""}
+                              </div>
+                            </div>
+                            <span className={`shrink-0 text-xs font-semibold ${color}`}>
+                              {trend}
+                            </span>
+                          </div>
+                        </li>
+                      );
+                    }
+                  }
+                  return (
+                    <li
+                      key={p.id}
+                      className="rounded-xl bg-surface-2 px-3 py-2 text-sm"
+                    >
+                      <div className="font-medium text-ink">
+                        {formatPrice(p.pricePaid)}
+                        <span className="ml-1 font-normal text-ink-muted">
+                          ({formatPrice(p.unitPricePaid)}/{p.unit} × {p.qty})
+                        </span>
+                      </div>
+                      <div className="text-xs text-ink-muted">
+                        {new Date(p.purchasedAt).toLocaleDateString(undefined, {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                        })}
+                        {p.vendor ? ` · ${p.vendor}` : ""}
+                        {p.promoNotes ? ` · ${p.promoNotes}` : ""}
+                        {p.discountPercent != null
+                          ? ` · ${p.discountPercent}% off`
+                          : ""}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            );
+          })()}
+        </div>
+
         <div className="space-y-2">
           <span className="text-sm font-medium text-ink">Attributes</span>
           <ul className="space-y-1">
@@ -200,6 +315,24 @@ export default function ItemDetailPage() {
           <p className="text-xs text-ink-muted">Sortly ID: {item.sortlyId}</p>
         ) : null}
       </div>
+
+      {showPurchase ? (
+        <LogPurchaseSheet
+          item={item}
+          lastPurchase={getPurchasesForItem(item.id)[0] ?? null}
+          open
+          onClose={() => setShowPurchase(false)}
+          onSave={(data) => {
+            logPurchase({
+              itemId: item.id,
+              ...data,
+              source: "manual",
+              alsoRestock: false,
+            });
+            setShowPurchase(false);
+          }}
+        />
+      ) : null}
 
       <div className="grid gap-2 sm:grid-cols-2">
         <button

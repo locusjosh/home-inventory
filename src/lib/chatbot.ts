@@ -5,7 +5,19 @@ import { formatQty, isLowStock } from "./utils";
 export type ChatAction =
   | { type: "setQuantity"; itemId: string; quantity: number }
   | { type: "adjustQuantity"; itemId: string; delta: number }
-  | { type: "markRestocked"; itemId: string };
+  | { type: "markRestocked"; itemId: string }
+  | {
+      type: "logPurchase";
+      itemId: string;
+      qty: number;
+      pricePaid: number;
+      listPrice?: number | null;
+      discountPercent?: number | null;
+      discountAmount?: number | null;
+      promoNotes?: string | null;
+      vendor?: string | null;
+      alsoRestock?: boolean;
+    };
 
 export type ChatMatch = { item: InventoryItem; score: number };
 
@@ -424,6 +436,8 @@ function helpReply(): string {
     "• Use 1 paper towels",
     "• Add 2 to dish soap",
     "• Mark toilet paper restocked",
+    "• Bought toilet paper for 22.50 at Costco",
+    "• Paid 15 for detergent pods with 33% off",
     "• What needs counting?",
     "• Find gloves / all filters",
   ].join("\n");
@@ -670,6 +684,13 @@ function maybeProactiveFollowUp(reply: string, seed: string): string {
 export function handleChatMessage(raw: string, ctx: ChatContext): ChatResult {
   const text = raw.trim();
   if (!text) return { reply: "Say something — or tap a suggestion." };
+
+  if (/^log a purchase/i.test(text) || text === "Log a purchase…") {
+    return {
+      reply:
+        "Say it like: “bought toilet paper for 22.50 at Costco” or “paid 15 for detergent pods with 33% off”. Or use Log purchase on the Restock list (2 taps: Log purchase → type price → Save).",
+    };
+  }
 
   const n = normalize(text);
   const { activeItems, lowStockItems, needsCountItems, pendingCandidates, lastAssistantText } =
@@ -949,6 +970,90 @@ export function handleChatMessage(raw: string, ctx: ChatContext): ChatResult {
     }
   }
 
+
+  // Purchase / paid: "bought X for 22.50 at Costco", "paid 15 for Y with 33% off"
+  {
+    let nameQ: string | null = null;
+    let pricePaid: number | null = null;
+    let vendor: string | null = null;
+    let discountPercent: number | null = null;
+    let promoNotes: string | null = null;
+    let qty = 1;
+
+    const paidFor = text.match(
+      /^(?:paid|pay|spent)\s+\$?(\d+(?:\.\d{1,2})?)\s+(?:for|on)\s+(.+?)(?:\s+with\s+(\d+(?:\.\d+)?)\s*%\s*off)?(?:\s+(?:at|from)\s+(.+))?$/i
+    );
+    const atBeforeFor = text.match(
+      /^(?:bought|purchased|got)\s+(.+?)\s+(?:at|from)\s+(.+?)\s+for\s+\$?(\d+(?:\.\d{1,2})?)$/i
+    );
+    const forThenAt = text.match(
+      /^(?:bought|purchased|got)\s+(.+?)\s+for\s+\$?(\d+(?:\.\d{1,2})?)(?:\s+with\s+(\d+(?:\.\d+)?)\s*%\s*off)?(?:\s+(?:at|from)\s+(.+))?$/i
+    );
+
+    if (paidFor) {
+      pricePaid = Number(paidFor[1]);
+      nameQ = paidFor[2].trim();
+      if (paidFor[3]) {
+        discountPercent = Number(paidFor[3]);
+        promoNotes = `${paidFor[3]}% off`;
+      }
+      vendor = paidFor[4]?.trim() || null;
+    } else if (atBeforeFor) {
+      nameQ = atBeforeFor[1].trim();
+      vendor = atBeforeFor[2].trim();
+      pricePaid = Number(atBeforeFor[3]);
+    } else if (forThenAt) {
+      nameQ = forThenAt[1].trim();
+      pricePaid = Number(forThenAt[2]);
+      if (forThenAt[3]) {
+        discountPercent = Number(forThenAt[3]);
+        promoNotes = `${forThenAt[3]}% off`;
+      }
+      vendor = forThenAt[4]?.trim() || null;
+    }
+
+    if (nameQ) {
+      const qtyPref = nameQ.match(
+        /^(\d+(?:\.\d+)?|a|an|one|two|three|four|five|six|seven|eight|nine|ten)\s+(.+)$/i
+      );
+      if (qtyPref) {
+        const q = parseNumber(qtyPref[1]);
+        if (q !== null && q > 0) {
+          qty = q;
+          nameQ = qtyPref[2];
+        }
+      }
+      nameQ = nameQ.replace(/^(the|some)\s+/i, "").trim();
+    }
+
+    if (nameQ && pricePaid !== null && Number.isFinite(pricePaid)) {
+      const resolved = resolveItem(nameQ, activeItems);
+      if (resolved.reply && !resolved.item)
+        return { reply: resolved.reply, candidates: resolved.candidates };
+      if (resolved.item) {
+        const unit = Math.round((pricePaid / qty) * 100) / 100;
+        const vendorBit = vendor ? ` at ${vendor}` : "";
+        const promoBit = discountPercent != null ? ` (${discountPercent}% off)` : "";
+        return {
+          reply: maybeProactiveFollowUp(
+            `Logged purchase — ${resolved.item.name}: $${pricePaid.toFixed(2)} for ${formatQty(qty)} ${resolved.item.unit}${vendorBit}${promoBit} · $${unit.toFixed(2)}/${resolved.item.unit}. Qty restocked.`,
+            text
+          ),
+          action: {
+            type: "logPurchase",
+            itemId: resolved.item.id,
+            qty,
+            pricePaid,
+            discountPercent,
+            promoNotes,
+            vendor,
+            alsoRestock: true,
+          },
+        };
+      }
+    }
+  }
+
   // Restock: "mark X restocked", "bought X", "restocked X"
   {
     const restockMatch =
@@ -1094,5 +1199,6 @@ export const SUGGESTION_CHIPS = [
   "Bathroom status",
   "Do I have toilet paper?",
   "What's critically low?",
+  "Log a purchase…",
   "Find gloves",
 ] as const;

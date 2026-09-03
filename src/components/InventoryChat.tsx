@@ -10,8 +10,11 @@ import {
 import type { InventoryItem } from "@/lib/types";
 import { formatQty } from "@/lib/utils";
 import {
+  RECOGNITION_COOLDOWN_MS,
+  SILENT_MODE_TIP,
   VOICE_GREETING,
   createRecognition,
+  humanizeRecognitionError,
   isSpeechRecognitionSupported,
   isSpeechSynthesisSupported,
   loadVoiceRepliesEnabled,
@@ -19,6 +22,8 @@ import {
   speak,
   stopSpeaking,
   textForSpeech,
+  unlockSpeechSynthesis,
+  ensureVoicesLoaded,
   type VoiceStatus,
 } from "@/lib/voice";
 
@@ -67,6 +72,7 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
     needsCountItems,
     updateQuantity,
     markRestocked,
+    logPurchase,
   } = useInventory();
 
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -81,6 +87,8 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
   const [status, setStatus] = useState<VoiceStatus>("idle");
   const [interim, setInterim] = useState("");
   const [micToggleOn, setMicToggleOn] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const [showSilentTip, setShowSilentTip] = useState(false);
 
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -91,6 +99,11 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
   const lastAssistantRef = useRef<string>("");
   const voiceRepliesRef = useRef(true);
   const greetedRef = useRef(false);
+  const audioUnlockedRef = useRef(false);
+  const startingRef = useRef(false);
+  const cooldownUntilRef = useRef(0);
+  const finalSentRef = useRef(false);
+  const toastTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     pendingCandidatesRef.current = pendingCandidates;
@@ -99,6 +112,12 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
   useEffect(() => {
     voiceRepliesRef.current = voiceReplies;
   }, [voiceReplies]);
+
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => setToast(null), 4500);
+  }, []);
 
   useEffect(() => {
     const hist = loadHistory();
@@ -122,18 +141,13 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
     setTtsSupported(isSpeechSynthesisSupported());
     setVoiceReplies(loadVoiceRepliesEnabled());
     setHydrated(true);
-
-    // Warm voices list (Chrome)
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.getVoices();
-      window.speechSynthesis.onvoiceschanged = () => {
-        window.speechSynthesis.getVoices();
-      };
-    }
+    ensureVoicesLoaded();
 
     return () => {
       recognitionRef.current?.abort();
+      recognitionRef.current = null;
       stopSpeaking();
+      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
     };
   }, []);
 
@@ -164,9 +178,22 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
         updateQuantity(a.itemId, Math.max(0, item.quantity + a.delta));
       } else if (a.type === "markRestocked") {
         markRestocked(a.itemId);
+      } else if (a.type === "logPurchase") {
+        logPurchase({
+          itemId: a.itemId,
+          qty: a.qty,
+          pricePaid: a.pricePaid,
+          listPrice: a.listPrice,
+          discountPercent: a.discountPercent,
+          discountAmount: a.discountAmount,
+          promoNotes: a.promoNotes,
+          vendor: a.vendor,
+          source: "chat",
+          alsoRestock: a.alsoRestock !== false,
+        });
       }
     },
-    [activeItems, markRestocked, updateQuantity]
+    [activeItems, logPurchase, markRestocked, updateQuantity]
   );
 
   const speakReply = useCallback(
@@ -176,10 +203,21 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
       setStatus("speaking");
       speak({
         text: spoken,
-        onEnd: () => setStatus((s) => (s === "speaking" ? "idle" : s)),
+        onStart: () => setStatus("speaking"),
+        onEnd: () => {
+          setStatus((s) => (s === "speaking" ? "idle" : s));
+          // Do NOT startListening here — breaks iOS gesture chain
+        },
+        onError: () => {
+          setStatus("idle");
+          setShowSilentTip(true);
+          showToast(
+            "Couldn't speak — check Silent Mode / Voice replies"
+          );
+        },
       });
     },
-    [ttsSupported]
+    [showToast, ttsSupported]
   );
 
   const send = useCallback(
@@ -235,9 +273,21 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
       setMessages((prev) => [...prev, userMsg, botMsg]);
       setInput("");
 
-      if (opts?.fromVoice || voiceRepliesRef.current) {
+      // Always speak when fromVoice if voice replies on (default ON)
+      if (opts?.fromVoice) {
+        if (voiceRepliesRef.current) {
+          speakReply(replyText, result.speakText);
+        } else {
+          setStatus("idle");
+        }
+      } else if (voiceRepliesRef.current) {
         speakReply(replyText, result.speakText);
       }
+
+      // After reply, ensure mic can work again
+      recognitionRef.current = null;
+      setMicToggleOn(false);
+      startingRef.current = false;
 
       requestAnimationFrame(() => inputRef.current?.focus());
     },
@@ -250,80 +300,125 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
     ]
   );
 
+
   const stopListening = useCallback(() => {
     recognitionRef.current?.stop();
-    recognitionRef.current = null;
+    // Keep ref until onEnd clears — but also force idle soon
     setMicToggleOn(false);
     setStatus((s) => (s === "listening" ? "idle" : s));
   }, []);
 
   const startListening = useCallback(() => {
     if (!voiceSupported) return;
+    if (startingRef.current) return;
+    if (Date.now() < cooldownUntilRef.current) {
+      showToast("Mic cooling down — tap again in a moment");
+      return;
+    }
+
     stopSpeaking();
-    recognitionRef.current?.abort();
+    // Abort any leftover instance, then clear — always fresh Recognition
+    try {
+      recognitionRef.current?.abort();
+    } catch {
+      /* ignore */
+    }
+    recognitionRef.current = null;
     setInterim("");
+    finalSentRef.current = false;
+    startingRef.current = true;
 
     const session = createRecognition({
-      onStart: () => setStatus("listening"),
+      onStart: () => {
+        setStatus("listening");
+        startingRef.current = false;
+      },
       onInterim: (t) => setInterim(t),
       onFinal: (t) => {
+        if (finalSentRef.current) return;
+        finalSentRef.current = true;
         setInterim("");
         if (t.trim()) send(t, { fromVoice: true });
       },
       onEnd: () => {
         recognitionRef.current = null;
         setMicToggleOn(false);
-        setStatus((s) => (s === "listening" ? "idle" : s));
+        startingRef.current = false;
+        cooldownUntilRef.current = Date.now() + RECOGNITION_COOLDOWN_MS;
+        setStatus((s) => {
+          if (s === "listening") return "idle";
+          return s;
+        });
         setInterim("");
+        // Speak greeting AFTER first listen ends (not before — preserves gesture chain)
+        if (!greetedRef.current && voiceRepliesRef.current && ttsSupported) {
+          greetedRef.current = true;
+          // Only greet if we didn't already speak a reply
+          if (!finalSentRef.current) {
+            setStatus("speaking");
+            speak({
+              text: VOICE_GREETING,
+              onEnd: () => setStatus((s) => (s === "speaking" ? "idle" : s)),
+              onError: () => {
+                setStatus("idle");
+                setShowSilentTip(true);
+              },
+            });
+          }
+        }
       },
-      onError: () => {
+      onError: (err) => {
+        showToast(humanizeRecognitionError(err));
         setStatus("idle");
         setMicToggleOn(false);
+        startingRef.current = false;
+        recognitionRef.current = null;
+        cooldownUntilRef.current = Date.now() + RECOGNITION_COOLDOWN_MS;
       },
     });
-    if (!session) return;
+    if (!session) {
+      startingRef.current = false;
+      showToast("Speech recognition unavailable");
+      return;
+    }
     recognitionRef.current = session;
     setMicToggleOn(true);
+    setStatus("listening");
     session.start();
-  }, [send, voiceSupported]);
+  }, [send, showToast, ttsSupported, voiceSupported]);
 
+  /**
+   * Tap-to-toggle only — no pointerDown/Up hold handlers.
+   * onClick + onPointerDown both fire on iPhone and race (start then stop).
+   * Unlock TTS in the same user gesture, then start recognition immediately.
+   */
   const toggleMic = useCallback(() => {
     if (status === "listening" || micToggleOn) {
       stopListening();
       return;
     }
-    // Greeting once when enabling voice first time this session
-    if (!greetedRef.current && voiceRepliesRef.current && ttsSupported) {
-      greetedRef.current = true;
-      setStatus("speaking");
-      speak({
-        text: VOICE_GREETING,
-        onEnd: () => {
-          setStatus("idle");
-          startListening();
-        },
-      });
-      return;
+    if (status === "speaking") {
+      stopSpeaking();
+      setStatus("idle");
     }
-    startListening();
-  }, [micToggleOn, startListening, status, stopListening, ttsSupported]);
 
-  const onMicPointerDown = (e: React.PointerEvent) => {
-    // Hold-to-talk on pointer down; toggle still via click for accessibility
-    if (e.pointerType === "touch" || e.pointerType === "pen") {
-      e.preventDefault();
-      if (status !== "listening") startListening();
-    }
-  };
-
-  const onMicPointerUp = (e: React.PointerEvent) => {
-    if (e.pointerType === "touch" || e.pointerType === "pen") {
-      if (status === "listening") {
-        // Let recognition finalize
-        recognitionRef.current?.stop();
+    // Unlock audio in this gesture (iOS), then start recognition immediately
+    if (!audioUnlockedRef.current) {
+      unlockSpeechSynthesis();
+      audioUnlockedRef.current = true;
+    } else {
+      // Keep synthesis awake
+      try {
+        window.speechSynthesis?.resume();
+      } catch {
+        /* ignore */
       }
     }
-  };
+
+    // Mark greeted without speaking first — speak after first listen ends if needed
+    // (speaking before startListening breaks iOS recognition gesture chain)
+    startListening();
+  }, [micToggleOn, startListening, status, stopListening]);
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -368,6 +463,15 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
         <div className="absolute -left-20 top-10 h-56 w-56 rounded-full bg-sky-500/20 blur-3xl" />
         <div className="absolute -right-16 bottom-24 h-48 w-48 rounded-full bg-indigo-500/20 blur-3xl" />
       </div>
+
+      {toast ? (
+        <div
+          role="status"
+          className="absolute left-3 right-3 top-3 z-30 rounded-xl border border-amber-400/30 bg-amber-500/20 px-3 py-2 text-center text-xs font-medium text-amber-100 backdrop-blur"
+        >
+          {toast}
+        </div>
+      ) : null}
 
       <div className="relative z-10 flex items-start justify-between gap-3 border-b border-white/10 px-4 py-3">
         <div>
@@ -489,19 +593,29 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
         ))}
       </div>
 
+      {showSilentTip ? (
+        <div className="relative z-10 border-t border-white/5 px-3 py-2">
+          <p className="rounded-xl bg-white/5 px-3 py-2 text-[11px] leading-relaxed text-slate-400">
+            {SILENT_MODE_TIP}{" "}
+            <button
+              type="button"
+              className="text-sky-400 underline"
+              onClick={() => setShowSilentTip(false)}
+            >
+              Dismiss
+            </button>
+          </p>
+        </div>
+      ) : null}
+
       {/* Mic + input */}
-      <div
-        className="relative z-10 border-t border-white/10 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3"
-      >
+      <div className="relative z-10 border-t border-white/10 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
         <div className="mb-3 flex flex-col items-center gap-2">
           {voiceSupported ? (
             <>
               <button
                 type="button"
                 onClick={toggleMic}
-                onPointerDown={onMicPointerDown}
-                onPointerUp={onMicPointerUp}
-                onPointerCancel={onMicPointerUp}
                 aria-pressed={status === "listening"}
                 aria-label={
                   status === "listening" ? "Stop listening" : "Start listening"
@@ -514,10 +628,10 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
               >
                 <MicIcon listening={status === "listening"} />
               </button>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-center text-[11px] text-slate-500">
                 {status === "listening"
                   ? "Listening… tap again to stop"
-                  : "Tap mic · hold on phone · Safari: allow microphone"}
+                  : "Tap mic to toggle · Safari: allow mic · Silent Mode may mute TTS"}
               </p>
             </>
           ) : (

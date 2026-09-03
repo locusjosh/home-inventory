@@ -8,13 +8,20 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import type { InventoryItem, InventoryState, ItemDraft } from "@/lib/types";
+import type {
+  InventoryItem,
+  InventoryState,
+  ItemDraft,
+  LogPurchaseInput,
+  Purchase,
+} from "@/lib/types";
 import { importState, loadState, resetToSeed, saveState } from "@/lib/storage";
 import { isLowStock, needsCount, uid } from "@/lib/utils";
 
 type InventoryContextValue = {
   ready: boolean;
   items: InventoryItem[];
+  purchases: Purchase[];
   activeItems: InventoryItem[];
   lowStockItems: InventoryItem[];
   needsCountItems: InventoryItem[];
@@ -22,6 +29,9 @@ type InventoryContextValue = {
   updateQuantity: (id: string, quantity: number) => void;
   confirmCount: (id: string, quantity: number) => void;
   markRestocked: (id: string) => void;
+  logPurchase: (input: LogPurchaseInput) => Purchase | null;
+  getPurchasesForItem: (itemId: string) => Purchase[];
+  getLastPurchase: (itemId: string) => Purchase | null;
   updateItem: (id: string, patch: Partial<InventoryItem>) => void;
   addItem: (draft: ItemDraft) => InventoryItem;
   archiveItem: (id: string, archived?: boolean) => void;
@@ -47,6 +57,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const items = useMemo(() => state?.items ?? [], [state?.items]);
+  const purchases = useMemo(() => state?.purchases ?? [], [state?.purchases]);
 
   const activeItems = useMemo(
     () => items.filter((i) => !i.archived),
@@ -116,6 +127,76 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
     [persist, state]
   );
 
+  const getPurchasesForItem = useCallback(
+    (itemId: string) =>
+      purchases
+        .filter((p) => p.itemId === itemId)
+        .sort((a, b) => b.purchasedAt.localeCompare(a.purchasedAt)),
+    [purchases]
+  );
+
+  const getLastPurchase = useCallback(
+    (itemId: string) => {
+      const list = getPurchasesForItem(itemId);
+      return list[0] ?? null;
+    },
+    [getPurchasesForItem]
+  );
+
+  const logPurchase = useCallback(
+    (input: LogPurchaseInput): Purchase | null => {
+      if (!state) return null;
+      const item = state.items.find((i) => i.id === input.itemId);
+      if (!item) return null;
+      const qty = Math.max(0.01, input.qty || 1);
+      const pricePaid = Math.max(0, input.pricePaid);
+      const unitPricePaid = Math.round((pricePaid / qty) * 100) / 100;
+      const vendor = (input.vendor ?? item.lastVendor ?? item.vendor ?? null) || null;
+      const purchase: Purchase = {
+        id: uid("purchase"),
+        itemId: item.id,
+        purchasedAt: new Date().toISOString(),
+        qty,
+        unit: input.unit || item.unit || "units",
+        pricePaid,
+        listPrice: input.listPrice ?? null,
+        discountAmount: input.discountAmount ?? null,
+        discountPercent: input.discountPercent ?? null,
+        promoNotes: input.promoNotes ?? null,
+        vendor,
+        unitPricePaid,
+        source: input.source ?? "manual",
+      };
+
+      const alsoRestock = input.alsoRestock !== false;
+      const nextItems = state.items.map((i) => {
+        if (i.id !== item.id) return i;
+        let nextQty = i.quantity;
+        if (alsoRestock) {
+          const min = i.minLevel ?? 0;
+          // Prefer adding purchased qty when logging a buy
+          nextQty = Math.max(i.quantity + qty, i.quantity < min ? Math.max(min, 1) : i.quantity + qty);
+        }
+        return {
+          ...i,
+          quantity: Math.round(nextQty * 100) / 100,
+          price: unitPricePaid,
+          vendor: vendor ?? i.vendor,
+          lastVendor: vendor ?? i.lastVendor ?? i.vendor,
+        };
+      });
+
+      persist({
+        ...state,
+        version: Math.max(state.version, 2),
+        items: nextItems,
+        purchases: [purchase, ...(state.purchases ?? [])],
+      });
+      return purchase;
+    },
+    [persist, state]
+  );
+
   const updateItem = useCallback(
     (id: string, patch: Partial<InventoryItem>) => {
       if (!state) return;
@@ -144,9 +225,15 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
         vendor: draft.vendor,
         archived: false,
         lastCountedAt: null,
+        lastVendor: draft.vendor,
       };
       if (!state) {
-        const next = { items: [item], version: 1, seededAt: new Date().toISOString() };
+        const next = {
+          items: [item],
+          purchases: [],
+          version: 2,
+          seededAt: new Date().toISOString(),
+        };
         persist(next);
         return item;
       }
@@ -166,7 +253,11 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
   const deleteItem = useCallback(
     (id: string) => {
       if (!state) return;
-      persist({ ...state, items: state.items.filter((i) => i.id !== id) });
+      persist({
+        ...state,
+        items: state.items.filter((i) => i.id !== id),
+        purchases: (state.purchases ?? []).filter((p) => p.itemId !== id),
+      });
     },
     [persist, state]
   );
@@ -193,16 +284,18 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
     (nextItems: InventoryItem[]) => {
       persist({
         items: nextItems,
-        version: 1,
+        purchases: state?.purchases ?? [],
+        version: 2,
         seededAt: new Date().toISOString(),
       });
     },
-    [persist]
+    [persist, state?.purchases]
   );
 
   const value: InventoryContextValue = {
     ready: state !== null,
     items,
+    purchases,
     activeItems,
     lowStockItems,
     needsCountItems,
@@ -210,6 +303,9 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
     updateQuantity,
     confirmCount,
     markRestocked,
+    logPurchase,
+    getPurchasesForItem,
+    getLastPurchase,
     updateItem,
     addItem,
     archiveItem,

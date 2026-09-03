@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useInventory } from "@/context/InventoryContext";
+import { LogPurchaseSheet } from "@/components/LogPurchaseSheet";
+import type { InventoryItem } from "@/lib/types";
 import {
   formatPrice,
   needToBuy,
@@ -12,13 +14,20 @@ import {
 } from "@/lib/utils";
 
 export default function RestockPage() {
-  const { lowStockItems, markRestocked } = useInventory();
+  const { lowStockItems, markRestocked, logPurchase, getLastPurchase } =
+    useInventory();
   const [copied, setCopied] = useState(false);
+  const [sheetItem, setSheetItem] = useState<InventoryItem | null>(null);
+  const [sheetAlsoRestock, setSheetAlsoRestock] = useState(true);
+  const [payPromptItem, setPayPromptItem] = useState<InventoryItem | null>(
+    null
+  );
 
   const byVendor = useMemo(() => {
     const map = new Map<string, typeof lowStockItems>();
     for (const item of lowStockItems) {
-      const key = item.vendor?.trim() || "No vendor";
+      const key =
+        item.lastVendor?.trim() || item.vendor?.trim() || "No vendor";
       const list = map.get(key) ?? [];
       list.push(item);
       map.set(key, list);
@@ -34,9 +43,13 @@ export default function RestockPage() {
       lines.push(`## ${vendor}`);
       for (const item of items) {
         const need = needToBuy(item);
+        const last = getLastPurchase(item.id);
         lines.push(
           `- ${item.name}: buy ${need} ${item.unit} (have ${item.quantity}, min ${item.minLevel})` +
-            (item.price != null ? ` · ${formatPrice(item.price)}` : "")
+            (item.price != null ? ` · ${formatPrice(item.price)}` : "") +
+            (last
+              ? ` · last ${formatPrice(last.pricePaid)}${last.vendor ? ` @ ${last.vendor}` : ""}`
+              : "")
         );
       }
       lines.push("");
@@ -48,6 +61,11 @@ export default function RestockPage() {
     } catch {
       setCopied(false);
     }
+  };
+
+  const onMarkRestocked = (item: InventoryItem) => {
+    markRestocked(item.id);
+    setPayPromptItem(item);
   };
 
   return (
@@ -81,6 +99,7 @@ export default function RestockPage() {
           <ul className="divide-y divide-surface-3">
             {items.map((item) => {
               const need = needToBuy(item);
+              const last = getLastPurchase(item.id);
               return (
                 <li key={item.id} className="py-3 first:pt-0 last:pb-0">
                   <Link
@@ -89,6 +108,15 @@ export default function RestockPage() {
                   >
                     {item.name}
                   </Link>
+                  {last ? (
+                    <p className="mt-0.5 text-xs text-ink-muted">
+                      Last: {formatPrice(last.pricePaid)}
+                      {last.vendor ? ` at ${last.vendor}` : ""}
+                      {last.unitPricePaid != null
+                        ? ` · ${formatPrice(last.unitPricePaid)}/${last.unit}`
+                        : ""}
+                    </p>
+                  ) : null}
                   <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-ink-muted">
                     <span>
                       Have {item.quantity} {item.unit} · min {item.minLevel}
@@ -96,7 +124,9 @@ export default function RestockPage() {
                     <span className="font-semibold text-warn">
                       Need {need} {item.unit}
                     </span>
-                    {item.price != null ? <span>{formatPrice(item.price)}</span> : null}
+                    {item.price != null ? (
+                      <span>{formatPrice(item.price)}</span>
+                    ) : null}
                   </div>
                   {item.notes ? (
                     <p className="mt-1 text-sm text-ink-muted">{item.notes}</p>
@@ -128,7 +158,17 @@ export default function RestockPage() {
                     </a>
                     <button
                       type="button"
-                      onClick={() => markRestocked(item.id)}
+                      onClick={() => {
+                        setSheetAlsoRestock(true);
+                        setSheetItem(item);
+                      }}
+                      className="rounded-lg bg-accent px-2.5 py-1.5 text-xs font-semibold text-white"
+                    >
+                      Log purchase
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onMarkRestocked(item)}
                       className="rounded-lg bg-accent-soft px-2.5 py-1.5 text-xs font-semibold text-accent"
                     >
                       Mark restocked
@@ -144,6 +184,61 @@ export default function RestockPage() {
       {lowStockItems.length === 0 ? (
         <div className="rounded-2xl bg-surface p-8 text-center text-ink-muted shadow-soft">
           Restock list is empty.
+        </div>
+      ) : null}
+
+      {sheetItem ? (
+        <LogPurchaseSheet
+          item={sheetItem}
+          lastPurchase={getLastPurchase(sheetItem.id)}
+          open
+          onClose={() => setSheetItem(null)}
+          onSave={(data) => {
+            logPurchase({
+              itemId: sheetItem.id,
+              ...data,
+              source: "restock",
+              alsoRestock: sheetAlsoRestock,
+            });
+            setSheetItem(null);
+          }}
+        />
+      ) : null}
+
+      {payPromptItem ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
+          <button
+            type="button"
+            aria-label="Dismiss"
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setPayPromptItem(null)}
+          />
+          <div className="relative z-10 w-full max-w-sm rounded-t-2xl bg-surface p-4 shadow-soft sm:rounded-2xl">
+            <h3 className="font-semibold text-ink">What&apos;d you pay?</h3>
+            <p className="mt-1 text-sm text-ink-muted">
+              Optional — log price for {payPromptItem.name} (inflation tracking).
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPayPromptItem(null)}
+                className="flex-1 rounded-xl bg-surface-2 px-3 py-3 text-sm font-medium text-ink"
+              >
+                Skip
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSheetAlsoRestock(false);
+                  setSheetItem(payPromptItem);
+                  setPayPromptItem(null);
+                }}
+                className="flex-1 rounded-xl bg-accent px-3 py-3 text-sm font-semibold text-white"
+              >
+                Log price
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
     </div>

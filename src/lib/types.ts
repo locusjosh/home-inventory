@@ -52,10 +52,29 @@ export type InventoryItem = {
   archived?: boolean;
   /** ISO timestamp set when quantity confirmed in count mode */
   lastCountedAt?: string | null;
+  /** Last vendor used when logging a purchase */
+  lastVendor?: string | null;
+};
+
+export type Purchase = {
+  id: string;
+  itemId: string;
+  purchasedAt: string; // ISO
+  qty: number;
+  unit: string;
+  pricePaid: number; // total paid for this line
+  listPrice?: number | null; // was / MSRP if known
+  discountAmount?: number | null; // dollars off
+  discountPercent?: number | null;
+  promoNotes?: string | null; // "buy 4 save 33%", coupon, etc.
+  vendor?: string | null;
+  unitPricePaid?: number | null; // computed pricePaid/qty
+  source?: "restock" | "chat" | "manual";
 };
 
 export type InventoryState = {
   items: InventoryItem[];
+  purchases: Purchase[];
   version: number;
   seededAt?: string;
 };
@@ -71,4 +90,19 @@ export type ItemDraft = {
   vendor: string | null;
   attributes: Attribute[];
   archived?: boolean;
+};
+
+export type LogPurchaseInput = {
+  itemId: string;
+  qty: number;
+  pricePaid: number;
+  listPrice?: number | null;
+  discountAmount?: number | null;
+  discountPercent?: number | null;
+  promoNotes?: string | null;
+  vendor?: string | null;
+  unit?: string;
+  source?: "restock" | "chat" | "manual";
+  /** Also bump qty / mark restocked (default true for restock/chat) */
+  alsoRestock?: boolean;
 };
