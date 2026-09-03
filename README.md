@@ -2,10 +2,10 @@
 
 **Live:** https://locusjosh.github.io/home-inventory/
 
-Count mode, PWA, restock shop links, Use 1, Needs count, sort options. Static export basePath /home-inventory.
+Count mode, PWA, restock shop links, Use 1, Needs count, **local inventory chat** on Data. Static export basePath `/home-inventory`.
 
-See Features in app: /count, /restock, Add to Home Screen tip on /data.
 ## Features
+- **Inventory chat** (/data): ask stock / update counts on-device (no API)
 - Count mode (/count): room-by-room, stamps lastCountedAt
 - Stock home: Needs count, summary strip, sort options
 - Use 1; Restock shop links + Mark restocked + Copy list
@@ -14,7 +14,11 @@ See Features in app: /count, /restock, Add to Home Screen tip on /data.
 
 ## Deploy
 
-npm run build then touch out/.nojekyll then gh-pages -d out
+```bash
+npm run build
+touch out/.nojekyll
+npx gh-pages -d out
+```
 
 ## Tech
 

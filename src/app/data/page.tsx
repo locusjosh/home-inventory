@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useInventory } from "@/context/InventoryContext";
+import { InventoryChat } from "@/components/InventoryChat";
 import { downloadBlob, itemsToCsv } from "@/lib/utils";
 
 export default function DataPage() {
@@ -57,6 +58,8 @@ export default function DataPage() {
           Safari → Share → <strong>Add to Home Screen</strong> for a full-screen app with offline shell caching.
         </p>
       </section>
+
+      <InventoryChat />
 
       {message ? (
         <div className="rounded-xl bg-accent-soft px-4 py-3 text-sm text-accent">{message}</div>
