@@ -7,12 +7,31 @@ import {
   SUGGESTION_CHIPS,
   type ChatResult,
 } from "@/lib/chatbot";
+import type { InventoryItem } from "@/lib/types";
 import { formatQty } from "@/lib/utils";
+import {
+  VOICE_GREETING,
+  createRecognition,
+  isSpeechRecognitionSupported,
+  isSpeechSynthesisSupported,
+  loadVoiceRepliesEnabled,
+  saveVoiceRepliesEnabled,
+  speak,
+  stopSpeaking,
+  textForSpeech,
+  type VoiceStatus,
+} from "@/lib/voice";
 
 type Msg = {
   id: string;
   role: "user" | "assistant";
   text: string;
+  at?: number;
+};
+
+type InventoryChatProps = {
+  /** Full Jarvis Assist layout vs compact embed on Data */
+  variant?: "full" | "compact";
 };
 
 const STORAGE_KEY = "home-inventory-chat-v1";
@@ -29,7 +48,19 @@ function loadHistory(): Msg[] {
   }
 }
 
-export function InventoryChat() {
+function formatTime(ts?: number): string {
+  if (!ts) return "";
+  try {
+    return new Date(ts).toLocaleTimeString(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  } catch {
+    return "";
+  }
+}
+
+export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
   const {
     activeItems,
     lowStockItems,
@@ -41,23 +72,69 @@ export function InventoryChat() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [hydrated, setHydrated] = useState(false);
+  const [pendingCandidates, setPendingCandidates] = useState<InventoryItem[]>(
+    []
+  );
+  const [voiceReplies, setVoiceReplies] = useState(true);
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const [ttsSupported, setTtsSupported] = useState(false);
+  const [status, setStatus] = useState<VoiceStatus>("idle");
+  const [interim, setInterim] = useState("");
+  const [micToggleOn, setMicToggleOn] = useState(false);
+
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<ReturnType<typeof createRecognition> | null>(
+    null
+  );
+  const pendingCandidatesRef = useRef<InventoryItem[]>([]);
+  const lastAssistantRef = useRef<string>("");
+  const voiceRepliesRef = useRef(true);
+  const greetedRef = useRef(false);
+
+  useEffect(() => {
+    pendingCandidatesRef.current = pendingCandidates;
+  }, [pendingCandidates]);
+
+  useEffect(() => {
+    voiceRepliesRef.current = voiceReplies;
+  }, [voiceReplies]);
 
   useEffect(() => {
     const hist = loadHistory();
     if (hist.length) {
       setMessages(hist);
+      const lastA = [...hist].reverse().find((m) => m.role === "assistant");
+      if (lastA) lastAssistantRef.current = lastA.text;
     } else {
       setMessages([
         {
           id: "welcome",
           role: "assistant",
-          text: "Hey! Ask about stock or update counts — stays on this phone. Try a chip below or say “help”.",
+          text: "Inventory online. Ask about stock or update counts — 100% on this device. Tap the mic or type below.",
+          at: Date.now(),
         },
       ]);
+      lastAssistantRef.current =
+        "Inventory online. Ask about stock or update counts — 100% on this device. Tap the mic or type below.";
     }
+    setVoiceSupported(isSpeechRecognitionSupported());
+    setTtsSupported(isSpeechSynthesisSupported());
+    setVoiceReplies(loadVoiceRepliesEnabled());
     setHydrated(true);
+
+    // Warm voices list (Chrome)
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.getVoices();
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.getVoices();
+      };
+    }
+
+    return () => {
+      recognitionRef.current?.abort();
+      stopSpeaking();
+    };
   }, []);
 
   useEffect(() => {
@@ -73,7 +150,7 @@ export function InventoryChat() {
     const el = listRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
-  }, [messages]);
+  }, [messages, interim]);
 
   const applyAction = useCallback(
     (result: ChatResult) => {
@@ -92,68 +169,256 @@ export function InventoryChat() {
     [activeItems, markRestocked, updateQuantity]
   );
 
+  const speakReply = useCallback(
+    (replyText: string, speakText?: string) => {
+      if (!voiceRepliesRef.current || !ttsSupported) return;
+      const spoken = textForSpeech(replyText, speakText);
+      setStatus("speaking");
+      speak({
+        text: spoken,
+        onEnd: () => setStatus((s) => (s === "speaking" ? "idle" : s)),
+      });
+    },
+    [ttsSupported]
+  );
+
   const send = useCallback(
-    (raw: string) => {
+    (raw: string, opts?: { fromVoice?: boolean }) => {
       const text = raw.trim();
       if (!text) return;
+
+      stopSpeaking();
+      setInterim("");
 
       const userMsg: Msg = {
         id: `u-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         role: "user",
         text,
+        at: Date.now(),
       };
 
-      // Resolve against current inventory snapshot
       const result = handleChatMessage(text, {
         activeItems,
         lowStockItems,
         needsCountItems,
+        pendingCandidates: pendingCandidatesRef.current,
+        lastAssistantText: lastAssistantRef.current,
       });
       applyAction(result);
 
-      // After markRestocked / set, reply already has confirmation; for adjust we used pre-update qty in engine which is correct.
       let replyText = result.reply;
       if (result.action?.type === "markRestocked") {
-        // Refresh confirmation with new qty after action — look up item from current state before re-render
         const item = activeItems.find((i) => i.id === result.action!.itemId);
         if (item) {
-          // markRestocked logic mirrors context: bump to min or +1
           const min = item.minLevel ?? 0;
-          const nextQty = item.quantity < min ? Math.max(min, 1) : item.quantity + 1;
+          const nextQty =
+            item.quantity < min ? Math.max(min, 1) : item.quantity + 1;
           replyText = `Marked ${item.name} restocked → ${formatQty(nextQty)} ${item.unit}. Nice catch-up.`;
         }
       }
+
+      if (result.candidates?.length) {
+        setPendingCandidates(result.candidates);
+      } else {
+        setPendingCandidates([]);
+      }
+
+      lastAssistantRef.current = replyText;
 
       const botMsg: Msg = {
         id: `a-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         role: "assistant",
         text: replyText,
+        at: Date.now(),
       };
 
       setMessages((prev) => [...prev, userMsg, botMsg]);
       setInput("");
+
+      if (opts?.fromVoice || voiceRepliesRef.current) {
+        speakReply(replyText, result.speakText);
+      }
+
       requestAnimationFrame(() => inputRef.current?.focus());
     },
-    [activeItems, applyAction, lowStockItems, needsCountItems]
+    [
+      activeItems,
+      applyAction,
+      lowStockItems,
+      needsCountItems,
+      speakReply,
+    ]
   );
+
+  const stopListening = useCallback(() => {
+    recognitionRef.current?.stop();
+    recognitionRef.current = null;
+    setMicToggleOn(false);
+    setStatus((s) => (s === "listening" ? "idle" : s));
+  }, []);
+
+  const startListening = useCallback(() => {
+    if (!voiceSupported) return;
+    stopSpeaking();
+    recognitionRef.current?.abort();
+    setInterim("");
+
+    const session = createRecognition({
+      onStart: () => setStatus("listening"),
+      onInterim: (t) => setInterim(t),
+      onFinal: (t) => {
+        setInterim("");
+        if (t.trim()) send(t, { fromVoice: true });
+      },
+      onEnd: () => {
+        recognitionRef.current = null;
+        setMicToggleOn(false);
+        setStatus((s) => (s === "listening" ? "idle" : s));
+        setInterim("");
+      },
+      onError: () => {
+        setStatus("idle");
+        setMicToggleOn(false);
+      },
+    });
+    if (!session) return;
+    recognitionRef.current = session;
+    setMicToggleOn(true);
+    session.start();
+  }, [send, voiceSupported]);
+
+  const toggleMic = useCallback(() => {
+    if (status === "listening" || micToggleOn) {
+      stopListening();
+      return;
+    }
+    // Greeting once when enabling voice first time this session
+    if (!greetedRef.current && voiceRepliesRef.current && ttsSupported) {
+      greetedRef.current = true;
+      setStatus("speaking");
+      speak({
+        text: VOICE_GREETING,
+        onEnd: () => {
+          setStatus("idle");
+          startListening();
+        },
+      });
+      return;
+    }
+    startListening();
+  }, [micToggleOn, startListening, status, stopListening, ttsSupported]);
+
+  const onMicPointerDown = (e: React.PointerEvent) => {
+    // Hold-to-talk on pointer down; toggle still via click for accessibility
+    if (e.pointerType === "touch" || e.pointerType === "pen") {
+      e.preventDefault();
+      if (status !== "listening") startListening();
+    }
+  };
+
+  const onMicPointerUp = (e: React.PointerEvent) => {
+    if (e.pointerType === "touch" || e.pointerType === "pen") {
+      if (status === "listening") {
+        // Let recognition finalize
+        recognitionRef.current?.stop();
+      }
+    }
+  };
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     send(input);
   };
 
+  const toggleVoiceReplies = () => {
+    setVoiceReplies((v) => {
+      const next = !v;
+      saveVoiceRepliesEnabled(next);
+      if (!next) stopSpeaking();
+      return next;
+    });
+  };
+
+  const statusLabel =
+    status === "listening"
+      ? "Listening…"
+      : status === "speaking"
+        ? "Speaking…"
+        : voiceSupported
+          ? "Ready"
+          : "Voice unavailable";
+
+  const isFull = variant === "full";
+
   return (
-    <section className="flex flex-col rounded-2xl bg-surface p-4 shadow-soft">
-      <div className="mb-3">
-        <h2 className="font-semibold text-ink">Inventory chat</h2>
-        <p className="text-sm text-ink-muted">
-          Ask about stock or update counts — stays on this phone, no cloud.
-        </p>
+    <section
+      className={`relative flex flex-col overflow-hidden rounded-2xl border border-white/10 shadow-soft ${
+        isFull
+          ? "min-h-[calc(100dvh-9.5rem)] bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 text-slate-100"
+          : "bg-gradient-to-b from-slate-900/95 via-slate-900 to-slate-950 text-slate-100"
+      } assist-glass`}
+    >
+      {/* Ambient glow when listening */}
+      <div
+        className={`pointer-events-none absolute inset-0 transition-opacity duration-500 ${
+          status === "listening" ? "opacity-100" : "opacity-0"
+        }`}
+        aria-hidden
+      >
+        <div className="absolute -left-20 top-10 h-56 w-56 rounded-full bg-sky-500/20 blur-3xl" />
+        <div className="absolute -right-16 bottom-24 h-48 w-48 rounded-full bg-indigo-500/20 blur-3xl" />
+      </div>
+
+      <div className="relative z-10 flex items-start justify-between gap-3 border-b border-white/10 px-4 py-3">
+        <div>
+          <h2 className="font-semibold tracking-tight text-white">
+            {isFull ? "Jarvis Assist" : "Assistant"}
+          </h2>
+          <p className="text-xs text-slate-400">
+            On-device · Web Speech · no cloud AI
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-1.5">
+          <div
+            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ${
+              status === "listening"
+                ? "bg-sky-500/20 text-sky-300"
+                : status === "speaking"
+                  ? "bg-violet-500/20 text-violet-300"
+                  : "bg-white/5 text-slate-400"
+            }`}
+            aria-live="polite"
+          >
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${
+                status === "listening"
+                  ? "animate-pulse bg-sky-400"
+                  : status === "speaking"
+                    ? "animate-pulse bg-violet-400"
+                    : "bg-emerald-400/80"
+              }`}
+            />
+            {statusLabel}
+          </div>
+          {ttsSupported ? (
+            <button
+              type="button"
+              onClick={toggleVoiceReplies}
+              className={`text-[11px] font-medium ${
+                voiceReplies ? "text-sky-300" : "text-slate-500"
+              }`}
+            >
+              Voice replies {voiceReplies ? "on" : "off"}
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <div
         ref={listRef}
-        className="mb-3 max-h-72 space-y-2 overflow-y-auto overscroll-contain rounded-xl bg-surface-2/80 p-3"
+        className={`relative z-10 space-y-2.5 overflow-y-auto overscroll-contain px-3 py-3 ${
+          isFull ? "flex-1" : "max-h-80"
+        }`}
         role="log"
         aria-live="polite"
       >
@@ -163,50 +428,148 @@ export function InventoryChat() {
             className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
           >
             <div
-              className={`max-w-[85%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${
+              className={`max-w-[88%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed shadow-sm ${
                 m.role === "user"
-                  ? "rounded-br-md bg-accent text-white"
-                  : "rounded-bl-md bg-surface text-ink shadow-soft"
+                  ? "rounded-br-md bg-sky-600 text-white"
+                  : "rounded-bl-md border border-white/10 bg-white/5 text-slate-100 backdrop-blur"
               }`}
             >
               {m.text}
+              {m.at ? (
+                <div
+                  className={`mt-1 text-[10px] ${
+                    m.role === "user" ? "text-sky-100/70" : "text-slate-500"
+                  }`}
+                >
+                  {formatTime(m.at)}
+                </div>
+              ) : null}
             </div>
           </div>
         ))}
+
+        {interim ? (
+          <div className="flex justify-end">
+            <div className="max-w-[88%] rounded-2xl rounded-br-md bg-sky-600/40 px-3.5 py-2 text-sm italic text-sky-100">
+              {interim}
+            </div>
+          </div>
+        ) : null}
       </div>
 
-      <div className="mb-3 flex flex-wrap gap-2">
+      {pendingCandidates.length > 0 ? (
+        <div className="relative z-10 flex flex-wrap gap-2 border-t border-white/5 px-3 py-2">
+          <span className="w-full text-[11px] font-medium uppercase tracking-wide text-slate-500">
+            Pick one
+          </span>
+          {pendingCandidates.map((c, i) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => send(String(i + 1))}
+              className="rounded-full border border-sky-400/30 bg-sky-500/10 px-3 py-1.5 text-xs font-medium text-sky-200 active:scale-95"
+            >
+              {i + 1}. {c.name}
+              <span className="ml-1 text-slate-500">({c.folder})</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="relative z-10 flex flex-wrap gap-2 border-t border-white/5 px-3 py-2">
         {SUGGESTION_CHIPS.map((chip) => (
           <button
             key={chip}
             type="button"
             onClick={() => send(chip)}
-            className="rounded-full bg-accent-soft px-3 py-1.5 text-xs font-medium text-accent active:scale-95"
+            className="rounded-full bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-300 ring-1 ring-white/10 active:scale-95"
           >
             {chip}
           </button>
         ))}
       </div>
 
-      <form onSubmit={onSubmit} className="flex gap-2">
-        <input
-          ref={inputRef}
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask or update…"
-          autoComplete="off"
-          enterKeyHint="send"
-          className="min-w-0 flex-1 rounded-xl border border-surface-3 bg-surface-2 px-3.5 py-3 text-sm text-ink placeholder:text-ink-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
-        />
-        <button
-          type="submit"
-          disabled={!input.trim()}
-          className="shrink-0 rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-white disabled:opacity-40"
-        >
-          Send
-        </button>
-      </form>
+      {/* Mic + input */}
+      <div
+        className="relative z-10 border-t border-white/10 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3"
+      >
+        <div className="mb-3 flex flex-col items-center gap-2">
+          {voiceSupported ? (
+            <>
+              <button
+                type="button"
+                onClick={toggleMic}
+                onPointerDown={onMicPointerDown}
+                onPointerUp={onMicPointerUp}
+                onPointerCancel={onMicPointerUp}
+                aria-pressed={status === "listening"}
+                aria-label={
+                  status === "listening" ? "Stop listening" : "Start listening"
+                }
+                className={`relative flex h-16 w-16 items-center justify-center rounded-full transition-transform active:scale-95 ${
+                  status === "listening"
+                    ? "bg-sky-500 text-white shadow-[0_0_0_8px_rgba(56,189,248,0.25)] mic-pulse"
+                    : "bg-gradient-to-br from-sky-500 to-indigo-600 text-white shadow-lg shadow-sky-900/40"
+                }`}
+              >
+                <MicIcon listening={status === "listening"} />
+              </button>
+              <p className="text-[11px] text-slate-500">
+                {status === "listening"
+                  ? "Listening… tap again to stop"
+                  : "Tap mic · hold on phone · Safari: allow microphone"}
+              </p>
+            </>
+          ) : (
+            <p className="rounded-xl bg-white/5 px-3 py-2 text-center text-xs text-slate-400">
+              Voice not supported here. Type below — or open in Safari and Add
+              to Home Screen for best mic support.
+            </p>
+          )}
+        </div>
+
+        <form onSubmit={onSubmit} className="flex gap-2">
+          <input
+            ref={inputRef}
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Ask or update…"
+            autoComplete="off"
+            enterKeyHint="send"
+            className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-white placeholder:text-slate-500 focus:border-sky-400/50 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+          />
+          <button
+            type="submit"
+            disabled={!input.trim()}
+            className="shrink-0 rounded-xl bg-sky-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-40"
+          >
+            Send
+          </button>
+        </form>
+      </div>
     </section>
+  );
+}
+
+function MicIcon({ listening }: { listening: boolean }) {
+  return (
+    <svg
+      width="28"
+      height="28"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+      className={listening ? "animate-pulse" : undefined}
+    >
+      <path
+        d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Z"
+        fill="currentColor"
+      />
+      <path
+        d="M19 11a1 1 0 1 0-2 0 5 5 0 0 1-10 0 1 1 0 1 0-2 0 7 7 0 0 0 6 6.93V21a1 1 0 1 0 2 0v-3.07A7 7 0 0 0 19 11Z"
+        fill="currentColor"
+      />
+    </svg>
   );
 }

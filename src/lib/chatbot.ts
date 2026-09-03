@@ -11,6 +11,8 @@ export type ChatMatch = { item: InventoryItem; score: number };
 
 export type ChatResult = {
   reply: string;
+  /** Shorter text for TTS when reply is a long list */
+  speakText?: string;
   action?: ChatAction;
   /** Ambiguous matches for UI chips */
   candidates?: InventoryItem[];
@@ -20,6 +22,10 @@ export type ChatContext = {
   activeItems: InventoryItem[];
   lowStockItems: InventoryItem[];
   needsCountItems: InventoryItem[];
+  /** Candidates from last "which one?" turn */
+  pendingCandidates?: InventoryItem[];
+  /** Last assistant message (for follow-up resolution) */
+  lastAssistantText?: string;
 };
 
 const WORD_NUM: Record<string, number> = {
@@ -36,6 +42,98 @@ const WORD_NUM: Record<string, number> = {
   nine: 9,
   ten: 10,
   half: 0.5,
+};
+
+/** Common household synonyms → search expansion tokens / preferred names */
+const SYNONYMS: Record<string, string[]> = {
+  tp: ["toilet paper"],
+  "toilet paper": ["toilet paper", "bath tissue"],
+  "paper towel": ["paper towels"],
+  "paper towels": ["paper towels"],
+  wipes: ["clorox wipes", "wipes"],
+  wipe: ["clorox wipes", "wipes"],
+  pods: ["detergent pods", "dishwasher pods"],
+  "detergent pods": ["detergent pods"],
+  detergent: ["detergent pods", "floor detergent"],
+  "trash bags": ["trash bags", "kitchen trash bags", "black trash bags"],
+  "trash bag": ["trash bags", "kitchen trash bags", "black trash bags"],
+  "garbage bags": ["trash bags", "kitchen trash bags", "black trash bags"],
+  "dish soap": ["dish soap"],
+  "dish soap liquid": ["dish soap"],
+  soap: ["dish soap", "hand soap", "body wash"],
+  gloves: ["latex gloves"],
+  "latex gloves": ["latex gloves"],
+  filters: ["air filters", "fridge air filter", "freezer air filter", "ice machine filter", "roborock filters", "coffee machine filters"],
+  filter: ["air filters", "fridge air filter", "freezer air filter"],
+  "air filter": ["air filters", "fridge air filter", "freezer air filter"],
+  bags: ["gallon bags", "quart bags", "sandwich bags", "trash bags"],
+  ziploc: ["gallon bags", "quart bags", "sandwich bags"],
+  "zip lock": ["gallon bags", "quart bags", "sandwich bags"],
+  foil: ["foil paper"],
+  "aluminum foil": ["foil paper"],
+  qtips: ["qtips"],
+  "q tips": ["qtips"],
+  "cotton swabs": ["qtips"],
+  clorox: ["clorox", "clorox spray", "clorox wipes"],
+  "clorax": ["clorox", "clorox spray", "clorox wipes"],
+  bleach: ["clorox"],
+  windex: ["windex spray"],
+  glass: ["windex spray"],
+  "pine sol": ["fabuloso/pinesol"],
+  pinesol: ["fabuloso/pinesol"],
+  fabuloso: ["fabuloso/pinesol"],
+  "first aid": ["first aid kit", "bandages"],
+  bandaids: ["bandages"],
+  "band aids": ["bandages"],
+  peroxide: ["hydrogen peroxide"],
+  "rubbing alcohol": ["rubbing alcohol"],
+  isopropyl: ["rubbing alcohol"],
+  hangers: ["clothes hangers"],
+  "dryer sheets": ["dryer sheets"],
+  "fabric softener": ["fabric softener"],
+  "scent beads": ["scent booster beads"],
+  "scent booster": ["scent booster beads"],
+  litter: ["cat litter"],
+  "dog food": ["dog food"],
+  toothpaste: ["toothpaste"],
+  "coffee cups": ["coffee cups"],
+  "paper plates": ["disposable plates"],
+  "plastic cups": ["disposable cups"],
+  "plastic forks": ["disposable forks"],
+  "plastic spoons": ["disposable spoons"],
+  plungers: ["plunger"],
+  "wd40": ["wd-40"],
+  "wd 40": ["wd-40"],
+  batteries: ["batteries aa", "batteries aaa"],
+  "aa batteries": ["batteries aa"],
+  "aaa batteries": ["batteries aaa"],
+  napkins: ["paper napkins"],
+  "plastic wrap": ["plastic wrap"],
+  saran: ["plastic wrap"],
+  parchment: ["parchment paper"],
+  shampoo: ["shampoo"],
+  conditioner: ["conditioner"],
+  deodorant: ["deodorant"],
+  sunscreen: ["sunscreen"],
+  sponges: ["sponges"],
+  "hand soap": ["hand soap"],
+  "body wash": ["body wash"],
+  floss: ["floss"],
+  mouthwash: ["mouthwash"],
+};
+
+/** Category-ish queries that should return multiple items */
+const CATEGORY_QUERIES: Record<string, (item: InventoryItem) => boolean> = {
+  filters: (i) => /filter/i.test(i.name),
+  gloves: (i) => /glove/i.test(i.name),
+  bags: (i) => /bags?/i.test(i.name),
+  "trash bags": (i) => /trash bag/i.test(i.name),
+  batteries: (i) => /batter/i.test(i.name),
+  cups: (i) => /cups?/i.test(i.name),
+  disposable: (i) => /disposable/i.test(i.name),
+  clorox: (i) => /clorox/i.test(i.name),
+  sprays: (i) => /spray/i.test(i.name),
+  spray: (i) => /spray/i.test(i.name),
 };
 
 /** Lowercase, strip punctuation, collapse spaces. */
@@ -59,43 +157,154 @@ function parseNumber(raw: string): number | null {
   return n;
 }
 
-/** Score how well query matches an item name (higher = better). */
-export function scoreMatch(query: string, itemName: string): number {
+/** Classic Levenshtein distance. */
+export function levenshtein(a: string, b: string): number {
+  const s = a.toLowerCase();
+  const t = b.toLowerCase();
+  if (s === t) return 0;
+  if (!s.length) return t.length;
+  if (!t.length) return s.length;
+  const rows = s.length + 1;
+  const cols = t.length + 1;
+  const prev = new Array<number>(cols);
+  const curr = new Array<number>(cols);
+  for (let j = 0; j < cols; j++) prev[j] = j;
+  for (let i = 1; i < rows; i++) {
+    curr[0] = i;
+    for (let j = 1; j < cols; j++) {
+      const cost = s[i - 1] === t[j - 1] ? 0 : 1;
+      curr[j] = Math.min(curr[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
+    }
+    for (let j = 0; j < cols; j++) prev[j] = curr[j];
+  }
+  return prev[cols - 1];
+}
+
+function expandQuery(query: string): string[] {
+  const n = normalize(query);
+  const expansions = new Set<string>([n]);
+  if (SYNONYMS[n]) {
+    for (const s of SYNONYMS[n]) expansions.add(normalize(s));
+  }
+  // Also expand individual tokens
+  for (const tok of tokens(n)) {
+    if (SYNONYMS[tok]) {
+      for (const s of SYNONYMS[tok]) expansions.add(normalize(s));
+    }
+  }
+  // Multi-word synonym keys contained in query
+  for (const [key, vals] of Object.entries(SYNONYMS)) {
+    if (key.includes(" ") && n.includes(key)) {
+      for (const s of vals) expansions.add(normalize(s));
+    }
+  }
+  return [...expansions];
+}
+
+function aliasBonus(query: string, item: InventoryItem): number {
   const q = normalize(query);
-  const name = normalize(itemName);
+  let bonus = 0;
+  const notes = item.notes ? normalize(item.notes) : "";
+  const vendor = item.vendor ? normalize(item.vendor) : "";
+  if (notes && (notes.includes(q) || tokens(q).every((t) => notes.includes(t)))) {
+    bonus += 8;
+  }
+  if (vendor && (vendor === q || vendor.includes(q))) {
+    bonus += 4;
+  }
+  // Light token hit from notes/vendor
+  for (const t of tokens(q)) {
+    if (t.length < 3) continue;
+    if (notes.includes(t)) bonus += 2;
+    if (vendor.includes(t)) bonus += 1;
+  }
+  return Math.min(12, bonus);
+}
+
+function typoBonus(qToken: string, nameToken: string): number {
+  if (qToken === nameToken) return 0;
+  const maxLen = Math.max(qToken.length, nameToken.length);
+  if (maxLen < 3) return 0;
+  const dist = levenshtein(qToken, nameToken);
+  // Allow ~1 edit per 4 chars, max 2 for short words
+  const allowed = maxLen <= 4 ? 1 : maxLen <= 8 ? 2 : 3;
+  if (dist === 0) return 0;
+  if (dist > allowed) return 0;
+  // clorax→clorox style
+  return Math.max(0, 12 - dist * 4);
+}
+
+function isSuggested(item: InventoryItem): boolean {
+  return normalize(item.folder) === "suggested items";
+}
+
+/** Score how well query matches an item (higher = better). */
+export function scoreMatch(query: string, item: InventoryItem): number {
+  const expansions = expandQuery(query);
+  let best = 0;
+  for (const q of expansions) {
+    best = Math.max(best, scoreMatchCore(q, item));
+  }
+  // Prefer active non-Suggested when scores would be close — applied later in ranking
+  return best;
+}
+
+function scoreMatchCore(q: string, item: InventoryItem): number {
+  const name = normalize(item.name);
   if (!q || !name) return 0;
-  if (q === name) return 100;
+  if (q === name) return 100 + aliasBonus(q, item);
 
   const qTokens = q.split(" ").filter(Boolean);
   const nTokens = name.split(" ").filter(Boolean);
   if (qTokens.length === 0) return 0;
 
-  // All query tokens found as substrings of name
   let matched = 0;
   let exactToken = 0;
+  let typoPts = 0;
   for (const qt of qTokens) {
     if (nTokens.some((nt) => nt === qt)) {
       matched++;
       exactToken++;
-    } else if (name.includes(qt) || nTokens.some((nt) => nt.startsWith(qt) || qt.startsWith(nt))) {
+      continue;
+    }
+    // typo / edit-distance against name tokens
+    let bestTypo = 0;
+    for (const nt of nTokens) {
+      bestTypo = Math.max(bestTypo, typoBonus(qt, nt));
+    }
+    if (bestTypo > 0) {
+      matched++;
+      typoPts += bestTypo;
+      continue;
+    }
+    if (name.includes(qt) || nTokens.some((nt) => nt.startsWith(qt) || qt.startsWith(nt))) {
       matched++;
     }
   }
+
   if (matched < qTokens.length) {
-    // Allow if majority of tokens match and at least one
-    if (matched === 0) return 0;
+    if (matched === 0) {
+      // Whole-string fuzzy for short queries (e.g. clorax vs clorox)
+      const dist = levenshtein(q, name);
+      const maxLen = Math.max(q.length, name.length);
+      if (maxLen >= 4 && dist <= Math.ceil(maxLen * 0.3) && dist <= 3) {
+        return Math.max(0, 70 - dist * 8) + aliasBonus(q, item);
+      }
+      return 0;
+    }
     if (matched < Math.ceil(qTokens.length * 0.6)) return 0;
   }
 
   let score = 40 + (matched / qTokens.length) * 30 + (exactToken / qTokens.length) * 20;
+  score += Math.min(15, typoPts);
 
-  // Prefer shorter names (more specific)
   if (name.startsWith(q) || name.includes(` ${q}`)) score += 8;
   if (name.includes(q)) score += 5;
   score -= Math.min(10, Math.abs(nTokens.length - qTokens.length));
 
-  // Bonus if all tokens exact
   if (exactToken === qTokens.length && qTokens.length === nTokens.length) score = 95;
+
+  score += aliasBonus(q, item);
 
   return Math.min(99, Math.round(score));
 }
@@ -104,9 +313,18 @@ export function findMatches(query: string, items: InventoryItem[], limit = 8): C
   const q = normalize(query);
   if (!q) return [];
   const scored = items
-    .map((item) => ({ item, score: scoreMatch(q, item.name) }))
+    .map((item) => ({ item, score: scoreMatch(q, item) }))
     .filter((m) => m.score > 0)
-    .sort((a, b) => b.score - a.score || a.item.name.localeCompare(b.item.name));
+    .sort((a, b) => {
+      // Prefer non-Suggested when scores close
+      const scoreDiff = b.score - a.score;
+      if (Math.abs(scoreDiff) <= 8) {
+        const aSug = isSuggested(a.item) ? 1 : 0;
+        const bSug = isSuggested(b.item) ? 1 : 0;
+        if (aSug !== bSug) return aSug - bSug;
+      }
+      return scoreDiff || a.item.name.localeCompare(b.item.name);
+    });
   return scored.slice(0, limit);
 }
 
@@ -126,16 +344,20 @@ function resolveItem(
 ): { item?: InventoryItem; reply?: string; candidates?: InventoryItem[] } {
   const matches = findMatches(nameQuery, items);
   if (matches.length === 0) {
-    // Suggest closest by loose token overlap
     const loose = items
       .map((item) => {
         const nTok = tokens(item.name);
         const qTok = tokens(nameQuery);
-        const hit = qTok.filter((t) => nTok.some((n) => n.includes(t) || t.includes(n))).length;
+        const hit = qTok.filter((t) =>
+          nTok.some((n) => n.includes(t) || t.includes(n) || typoBonus(t, n) > 0)
+        ).length;
         return { item, hit };
       })
       .filter((x) => x.hit > 0)
-      .sort((a, b) => b.hit - a.hit)
+      .sort((a, b) => {
+        if (b.hit !== a.hit) return b.hit - a.hit;
+        return (isSuggested(a.item) ? 1 : 0) - (isSuggested(b.item) ? 1 : 0);
+      })
       .slice(0, 3);
     if (loose.length) {
       return {
@@ -149,13 +371,18 @@ function resolveItem(
 
   const top = matches[0];
   const close = matches.filter((m) => m.score >= top.score - 12 && m.score >= 50);
-  // Ambiguous if multiple strong matches and not a clear winner
+
   if (
     matches.length > 1 &&
     top.score < 95 &&
     matches[1].score >= top.score - 8 &&
     matches[1].score >= 45
   ) {
+    // Prefer unique non-Suggested winner if clearly better after folder bias
+    const nonSug = matches.filter((m) => !isSuggested(m.item));
+    if (nonSug.length === 1 && nonSug[0].score >= top.score - 5 && nonSug[0].score >= 55) {
+      return { item: nonSug[0].item };
+    }
     const cands = matches.slice(0, 3).map((m) => m.item);
     return {
       reply: `Which one?\n${cands.map((c, i) => `${i + 1}. ${c.name} (${c.folder})`).join("\n")}`,
@@ -163,7 +390,6 @@ function resolveItem(
     };
   }
 
-  // Also ambiguous if several medium matches
   if (close.length > 1 && top.score < 85) {
     const cands = close.slice(0, 3).map((m) => m.item);
     return {
@@ -189,16 +415,17 @@ function matchFolder(text: string): string | null {
 
 function helpReply(): string {
   return [
-    "I'm your on-device inventory buddy. Try:",
+    "Inventory online — on-device only. Try:",
     "• Do I have toilet paper?",
-    "• What's low?",
-    "• Bathroom status",
+    "• What's low? / What's critically low?",
+    "• How's the house looking?",
+    "• Bathroom status / Compare Kitchen and Bathroom",
     "• Set detergent pods to 2",
     "• Use 1 paper towels",
     "• Add 2 to dish soap",
     "• Mark toilet paper restocked",
     "• What needs counting?",
-    "• Find gloves",
+    "• Find gloves / all filters",
   ].join("\n");
 }
 
@@ -224,6 +451,79 @@ function lowStockReply(items: InventoryItem[]): string {
     }
   }
   if (items.length > cap) lines.push(`\n…and ${items.length - cap} more.`);
+  return lines.join("\n");
+}
+
+function criticallyLowReply(items: InventoryItem[]): { reply: string; speakText: string } {
+  const crit = items.filter(
+    (i) =>
+      i.quantity <= 0 &&
+      i.minLevel !== null &&
+      i.minLevel !== undefined &&
+      i.minLevel > 0
+  );
+  if (crit.length === 0) {
+    return {
+      reply: "Nothing critically low — no items at zero with a min set.",
+      speakText: "Nothing critically low.",
+    };
+  }
+  const lines = [`${crit.length} critically low (qty 0 with min):`];
+  for (const i of crit.slice(0, 20)) {
+    lines.push(`· ${i.name}: 0 ${i.unit} (min ${formatQty(i.minLevel ?? 0)}) — ${i.folder}`);
+  }
+  if (crit.length > 20) lines.push(`…and ${crit.length - 20} more.`);
+  return {
+    reply: lines.join("\n"),
+    speakText: `${crit.length} critically low. Top ones: ${crit
+      .slice(0, 4)
+      .map((i) => i.name)
+      .join(", ")}.`,
+  };
+}
+
+function houseSummaryReply(
+  activeItems: InventoryItem[],
+  lowStockItems: InventoryItem[],
+  needsCountItems: InventoryItem[]
+): { reply: string; speakText: string } {
+  const byFolder = new Map<string, { total: number; low: number }>();
+  for (const i of activeItems) {
+    if (isSuggested(i)) continue;
+    const cur = byFolder.get(i.folder) ?? { total: 0, low: 0 };
+    cur.total++;
+    if (isLowStock(i)) cur.low++;
+    byFolder.set(i.folder, cur);
+  }
+  const lines = [
+    `House check: ${activeItems.filter((i) => !isSuggested(i)).length} active items, ${lowStockItems.length} low, ${needsCountItems.length} need counting.`,
+  ];
+  for (const [folder, s] of [...byFolder.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+    lines.push(`· ${folder}: ${s.total} items, ${s.low} low`);
+  }
+  const reply = lines.join("\n");
+  const speakText = `House looking ${
+    lowStockItems.length === 0 ? "good" : "a bit thin"
+  }: ${lowStockItems.length} low, ${needsCountItems.length} need counting.`;
+  return { reply, speakText };
+}
+
+function compareFoldersReply(a: string, b: string, items: InventoryItem[]): string {
+  const summary = (folder: string) => {
+    const inFolder = items.filter((i) => normalize(i.folder) === normalize(folder));
+    const low = inFolder.filter(isLowStock);
+    return { count: inFolder.length, low: low.length, lowNames: low.slice(0, 5).map((i) => i.name) };
+  };
+  const sa = summary(a);
+  const sb = summary(b);
+  const lines = [
+    `Compare ${a} vs ${b}:`,
+    `· ${a}: ${sa.count} items, ${sa.low} low${sa.lowNames.length ? ` (${sa.lowNames.join(", ")})` : ""}`,
+    `· ${b}: ${sb.count} items, ${sb.low} low${sb.lowNames.length ? ` (${sb.lowNames.join(", ")})` : ""}`,
+  ];
+  if (sa.low === sb.low) lines.push("Same low count.");
+  else if (sa.low > sb.low) lines.push(`${a} needs more attention.`);
+  else lines.push(`${b} needs more attention.`);
   return lines.join("\n");
 }
 
@@ -255,6 +555,114 @@ function folderStatusReply(folder: string, items: InventoryItem[]): string {
   return lines.join("\n");
 }
 
+function multiItemReply(label: string, found: InventoryItem[]): ChatResult {
+  if (found.length === 0) return { reply: `No ${label} found.` };
+  const lines = [`${found.length} ${label}:`];
+  for (const i of found.slice(0, 15)) {
+    lines.push(`· ${describeItem(i)}`);
+  }
+  if (found.length > 15) lines.push(`…and ${found.length - 15} more.`);
+  return {
+    reply: lines.join("\n"),
+    speakText: `${found.length} ${label}. ${found
+      .slice(0, 4)
+      .map((i) => `${i.name}: ${formatQty(i.quantity)}`)
+      .join(". ")}.`,
+    candidates: found.slice(0, 5),
+  };
+}
+
+/** Resolve follow-up like "the large", "2", "kitchen one" against pending candidates. */
+function resolveFollowUp(
+  text: string,
+  candidates: InventoryItem[],
+  lastAssistantText?: string
+): InventoryItem | null {
+  if (!candidates.length) return null;
+  const askedWhich =
+    !lastAssistantText ||
+    /which one|did you mean|pick one|choose/i.test(lastAssistantText);
+  if (!askedWhich && candidates.length > 1) {
+    // Still allow numbered / folder pick if we have candidates
+  }
+
+  const n = normalize(text);
+
+  // Pure number index
+  const numOnly = n.match(/^(?:the\s+)?(?:number\s+)?(\d+)$/);
+  if (numOnly) {
+    const idx = Number(numOnly[1]) - 1;
+    if (idx >= 0 && idx < candidates.length) return candidates[idx];
+  }
+
+  // "first" / "second" / "third"
+  const ord: Record<string, number> = { first: 0, second: 1, third: 2, last: candidates.length - 1 };
+  for (const [word, idx] of Object.entries(ord)) {
+    if (n === word || n === `the ${word}` || n === `the ${word} one`) {
+      if (idx >= 0 && idx < candidates.length) return candidates[idx];
+    }
+  }
+
+  // Folder hint: "kitchen one", "the bathroom", "laundry"
+  for (const c of candidates) {
+    const folder = normalize(c.folder);
+    if (
+      n === folder ||
+      n === `the ${folder}` ||
+      n === `${folder} one` ||
+      n === `the ${folder} one` ||
+      n.includes(folder)
+    ) {
+      return c;
+    }
+  }
+
+  // Size / attribute words in name: large, small, black, kitchen trash, etc.
+  const sizeWords = tokens(n).filter(
+    (t) => !["the", "one", "that", "this", "please", "item"].includes(t)
+  );
+  if (sizeWords.length) {
+    const scored = candidates
+      .map((c) => {
+        const name = normalize(c.name);
+        const hit = sizeWords.filter((w) => name.includes(w)).length;
+        return { c, hit };
+      })
+      .filter((x) => x.hit > 0)
+      .sort((a, b) => b.hit - a.hit);
+    if (scored.length === 1 || (scored.length > 1 && scored[0].hit > scored[1].hit)) {
+      return scored[0].c;
+    }
+    // Fuzzy name match within candidates
+    const matches = findMatches(text.replace(/^(the|that|this)\s+/i, ""), candidates, 3);
+    if (matches.length === 1 && matches[0].score >= 50) return matches[0].item;
+    if (matches.length > 0 && matches[0].score >= 70) return matches[0].item;
+  }
+
+  return null;
+}
+
+const FOLLOWUP_QUESTIONS = [
+  "Want me to mark anything restocked?",
+  "Should we count Bathroom next?",
+  "Need the critically low list?",
+  "Want a folder status — Kitchen or Laundry?",
+  "Shall I check what's low?",
+];
+
+function maybeProactiveFollowUp(reply: string, seed: string): string {
+  // Occasional (~28%) — deterministic-ish from seed so same message isn't random every render
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  if (h % 100 > 28) return reply;
+  // Don't stack if reply already asks a question ending
+  if (/\?\s*$/.test(reply.trim())) return reply;
+  // Skip for help / which-one / errors
+  if (/^which one|^couldn|^not sure|^inventory online/i.test(reply.trim())) return reply;
+  const q = FOLLOWUP_QUESTIONS[h % FOLLOWUP_QUESTIONS.length];
+  return `${reply}\n\n${q}`;
+}
+
 /**
  * Parse a user message against inventory. Pure — no side effects.
  * Caller applies `action` via useInventory hooks.
@@ -264,15 +672,78 @@ export function handleChatMessage(raw: string, ctx: ChatContext): ChatResult {
   if (!text) return { reply: "Say something — or tap a suggestion." };
 
   const n = normalize(text);
-  const { activeItems, lowStockItems, needsCountItems } = ctx;
+  const { activeItems, lowStockItems, needsCountItems, pendingCandidates, lastAssistantText } =
+    ctx;
 
-  // Help
+  // Conversational follow-up against pending candidates
+  if (pendingCandidates && pendingCandidates.length > 0) {
+    const picked = resolveFollowUp(text, pendingCandidates, lastAssistantText);
+    if (picked) {
+      const low = isLowStock(picked);
+      const minBit =
+        picked.minLevel !== null && picked.minLevel !== undefined
+          ? ` Min ${formatQty(picked.minLevel)}.`
+          : "";
+      return {
+        reply: maybeProactiveFollowUp(
+          `${picked.name}: ${formatQty(picked.quantity)} ${picked.unit} in ${picked.folder}.${minBit}${
+            low ? " That's low." : " Looking fine."
+          }`,
+          text + picked.id
+        ),
+      };
+    }
+    // "use 1" / "set to 2" style with pending — try to apply action to follow-up pick later via normal intents if they include a name
+  }
+
+  // Help / greeting
   if (
     /^(help|commands|\?|what can you do|how does this work)$/i.test(n) ||
     n === "hi" ||
-    n === "hello"
+    n === "hello" ||
+    n === "hey jarvis" ||
+    n === "jarvis"
   ) {
     return { reply: helpReply() };
+  }
+
+  // House summary
+  if (
+    /how('?s| is) the house|house (looking|status|check|summary)|inventory summary|overview|status report/.test(
+      n
+    )
+  ) {
+    const r = houseSummaryReply(activeItems, lowStockItems, needsCountItems);
+    return {
+      reply: maybeProactiveFollowUp(r.reply, text),
+      speakText: r.speakText,
+    };
+  }
+
+  // Critically low
+  if (
+    /critical(ly)? low|out of stock|what('?s| is) (at )?zero|qty 0|quantity zero|completely out/.test(
+      n
+    )
+  ) {
+    const r = criticallyLowReply(activeItems);
+    return { reply: maybeProactiveFollowUp(r.reply, text), speakText: r.speakText };
+  }
+
+  // Compare folders
+  {
+    const cmp = n.match(
+      /compare\s+(.+?)\s+(?:and|vs|versus|with|to)\s+(.+)$/
+    );
+    if (cmp) {
+      const fa = matchFolder(cmp[1]);
+      const fb = matchFolder(cmp[2]);
+      if (fa && fb) {
+        return {
+          reply: maybeProactiveFollowUp(compareFoldersReply(fa, fb, activeItems), text),
+        };
+      }
+    }
   }
 
   // Low stock
@@ -282,14 +753,29 @@ export function handleChatMessage(raw: string, ctx: ChatContext): ChatResult {
     ) ||
     /^(what('?s| is) low|low stock|what do i need|running low)/i.test(n)
   ) {
-    return { reply: lowStockReply(lowStockItems) };
+    const reply = lowStockReply(lowStockItems);
+    return {
+      reply: maybeProactiveFollowUp(reply, text),
+      speakText:
+        lowStockItems.length === 0
+          ? "Nothing is low."
+          : `${lowStockItems.length} low. ${lowStockItems
+              .slice(0, 4)
+              .map((i) => i.name)
+              .join(", ")}.`,
+    };
   }
 
   // Needs count
-  if (
-    /need(s)? count|uncounted|to count|what needs counting|items to count/.test(n)
-  ) {
-    return { reply: needsCountReply(needsCountItems) };
+  if (/need(s)? count|uncounted|to count|what needs counting|items to count/.test(n)) {
+    const reply = needsCountReply(needsCountItems);
+    return {
+      reply: maybeProactiveFollowUp(reply, text),
+      speakText:
+        needsCountItems.length === 0
+          ? "All counted."
+          : `${needsCountItems.length} need counting.`,
+    };
   }
 
   // Folder status: "Bathroom status", "what's in Kitchen", "status of Laundry"
@@ -299,38 +785,83 @@ export function handleChatMessage(raw: string, ctx: ChatContext): ChatResult {
     const folderRaw = m1?.[1] ?? m2?.[1];
     if (folderRaw) {
       const folder = matchFolder(folderRaw);
-      if (folder) return { reply: folderStatusReply(folder, activeItems) };
+      if (folder) {
+        const reply = folderStatusReply(folder, activeItems);
+        return {
+          reply: maybeProactiveFollowUp(reply, text),
+          speakText: (() => {
+            const inFolder = activeItems.filter(
+              (i) => normalize(i.folder) === normalize(folder)
+            );
+            const low = inFolder.filter(isLowStock).length;
+            return `${folder}: ${inFolder.length} items, ${low} low.`;
+          })(),
+        };
+      }
+    }
+  }
+
+  // Multi-item category: "all filters", "gloves", "show bags"
+  {
+    const prefixed = n.match(/^(?:all|show|list|find)\s+(.+)$/);
+    const catKey = prefixed ? normalize(prefixed[1]) : n;
+    const pred = CATEGORY_QUERIES[catKey];
+    if (pred) {
+      const found = activeItems.filter(pred);
+      if (prefixed || found.length > 1) {
+        const result = multiItemReply(catKey, found);
+        return {
+          ...result,
+          reply: maybeProactiveFollowUp(result.reply, text),
+        };
+      }
     }
   }
 
   // Set quantity: "set X to N", "X is N", "I have N X"
   {
     const setMatch =
-      text.match(/^set\s+(.+?)\s+to\s+(\d+(?:\.\d+)?|a|an|one|two|three|four|five|six|seven|eight|nine|ten)\s*$/i) ||
+      text.match(
+        /^set\s+(.+?)\s+to\s+(\d+(?:\.\d+)?|a|an|one|two|three|four|five|six|seven|eight|nine|ten)\s*$/i
+      ) ||
       text.match(
         /^(?:i\s+have|i've got|ive got|got)\s+(\d+(?:\.\d+)?|a|an|one|two|three|four|five|six|seven|eight|nine|ten)\s+(.+)$/i
       );
 
     if (setMatch) {
-      // Distinguish "set X to N" vs "I have N X"
       const isHaveForm = /^(?:i\s+have|i've got|ive got|got)/i.test(text);
       const qtyStr = isHaveForm ? setMatch[1] : setMatch[2];
       const nameQ = isHaveForm ? setMatch[2] : setMatch[1];
       const qty = parseNumber(qtyStr);
       if (qty !== null) {
+        // Follow-up: "set to 2" with pending
+        if (
+          pendingCandidates?.length &&
+          (!nameQ.trim() || /^(it|that|this|the one)$/i.test(nameQ.trim()))
+        ) {
+          const picked =
+            resolveFollowUp(nameQ || "1", pendingCandidates, lastAssistantText) ||
+            pendingCandidates[0];
+          return {
+            reply: `Got it — ${picked.name} is now ${formatQty(qty)} ${picked.unit}.`,
+            action: { type: "setQuantity", itemId: picked.id, quantity: qty },
+          };
+        }
         const resolved = resolveItem(nameQ, activeItems);
         if (resolved.reply && !resolved.item)
           return { reply: resolved.reply, candidates: resolved.candidates };
         if (resolved.item) {
           return {
-            reply: `Got it — ${resolved.item.name} is now ${formatQty(qty)} ${resolved.item.unit}.`,
+            reply: maybeProactiveFollowUp(
+              `Got it — ${resolved.item.name} is now ${formatQty(qty)} ${resolved.item.unit}.`,
+              text
+            ),
             action: { type: "setQuantity", itemId: resolved.item.id, quantity: qty },
           };
         }
       }
     }
 
-    // "X is N" / "X = N"
     const isMatch = text.match(
       /^(.+?)\s+(?:is|=)\s+(\d+(?:\.\d+)?|a|an|one|two|three|four|five|six|seven|eight|nine|ten)\s*$/i
     );
@@ -358,14 +889,21 @@ export function handleChatMessage(raw: string, ctx: ChatContext): ChatResult {
     if (addMatch) {
       const qty = parseNumber(addMatch[1]);
       if (qty !== null) {
-        const resolved = resolveItem(addMatch[2], activeItems);
-        if (resolved.reply && !resolved.item)
-          return { reply: resolved.reply, candidates: resolved.candidates };
-        if (resolved.item) {
-          const next = Math.max(0, resolved.item.quantity + qty);
+        const nameQ = addMatch[2];
+        let target: InventoryItem | undefined;
+        if (pendingCandidates?.length && /^(it|that|this|the one)$/i.test(nameQ.trim())) {
+          target = pendingCandidates[0];
+        } else {
+          const resolved = resolveItem(nameQ, activeItems);
+          if (resolved.reply && !resolved.item)
+            return { reply: resolved.reply, candidates: resolved.candidates };
+          target = resolved.item;
+        }
+        if (target) {
+          const next = Math.max(0, target.quantity + qty);
           return {
-            reply: `Added ${formatQty(qty)} — ${resolved.item.name} is now ${formatQty(next)} ${resolved.item.unit}.`,
-            action: { type: "adjustQuantity", itemId: resolved.item.id, delta: qty },
+            reply: `Added ${formatQty(qty)} — ${target.name} is now ${formatQty(next)} ${target.unit}.`,
+            action: { type: "adjustQuantity", itemId: target.id, delta: qty },
           };
         }
       }
@@ -392,14 +930,20 @@ export function handleChatMessage(raw: string, ctx: ChatContext): ChatResult {
       } else {
         nameQ = useMatch[1];
       }
-      const resolved = resolveItem(nameQ, activeItems);
-      if (resolved.reply && !resolved.item)
-        return { reply: resolved.reply, candidates: resolved.candidates };
-      if (resolved.item) {
-        const next = Math.max(0, resolved.item.quantity - qty);
+      let target: InventoryItem | undefined;
+      if (pendingCandidates?.length && /^(it|that|this|the one)$/i.test(nameQ.trim())) {
+        target = pendingCandidates[0];
+      } else {
+        const resolved = resolveItem(nameQ, activeItems);
+        if (resolved.reply && !resolved.item)
+          return { reply: resolved.reply, candidates: resolved.candidates };
+        target = resolved.item;
+      }
+      if (target) {
+        const next = Math.max(0, target.quantity - qty);
         return {
-          reply: `Used ${formatQty(qty)} — ${resolved.item.name} now ${formatQty(next)} ${resolved.item.unit}.`,
-          action: { type: "adjustQuantity", itemId: resolved.item.id, delta: -qty },
+          reply: `Used ${formatQty(qty)} — ${target.name} now ${formatQty(next)} ${target.unit}.`,
+          action: { type: "adjustQuantity", itemId: target.id, delta: -qty },
         };
       }
     }
@@ -430,10 +974,18 @@ export function handleChatMessage(raw: string, ctx: ChatContext): ChatResult {
       /^(?:find|search|items?\s+(?:with|named|like|containing)|list|show)\s+(.+)$/i
     );
     if (findMatch) {
-      // If it's a folder, treat as folder status
       const folder = matchFolder(findMatch[1]);
       if (folder && /^(list|show)\s+/i.test(text)) {
         return { reply: folderStatusReply(folder, activeItems) };
+      }
+      // Category under find
+      const catKey = normalize(findMatch[1]);
+      if (CATEGORY_QUERIES[catKey]) {
+        const found = activeItems.filter(CATEGORY_QUERIES[catKey]);
+        if (found.length > 0) {
+          const result = multiItemReply(catKey, found);
+          return { ...result, reply: maybeProactiveFollowUp(result.reply, text) };
+        }
       }
       const matches = findMatches(findMatch[1], activeItems, 10);
       if (matches.length === 0) {
@@ -443,7 +995,14 @@ export function handleChatMessage(raw: string, ctx: ChatContext): ChatResult {
       for (const m of matches) {
         lines.push(`· ${describeItem(m.item)}`);
       }
-      return { reply: lines.join("\n"), candidates: matches.slice(0, 3).map((m) => m.item) };
+      return {
+        reply: maybeProactiveFollowUp(lines.join("\n"), text),
+        speakText: `Found ${matches.length}. ${matches
+          .slice(0, 4)
+          .map((m) => m.item.name)
+          .join(", ")}.`,
+        candidates: matches.slice(0, 3).map((m) => m.item),
+      };
     }
   }
 
@@ -452,12 +1011,21 @@ export function handleChatMessage(raw: string, ctx: ChatContext): ChatResult {
     const qMatch =
       text.match(
         /^(?:do\s+i\s+have|have\s+i\s+got|how\s+many|how\s+much|status\s+of|qty\s+(?:of|for)|quantity\s+(?:of|for)|check|what(?:'?s|\s+is)\s+(?:my|the)\s+(?:count|stock|qty|quantity)\s+(?:of|for))\s+(.+?)\??$/i
-      ) ||
-      text.match(/^(?:do\s+i\s+have|got\s+any)\s+(.+?)\??$/i);
+      ) || text.match(/^(?:do\s+i\s+have|got\s+any)\s+(.+?)\??$/i);
     if (qMatch) {
       let nameQ = qMatch[1].replace(/\?+$/, "").trim();
-      // strip trailing "left" / "in stock"
       nameQ = nameQ.replace(/\s+(left|in stock|available)$/i, "").trim();
+
+      // Category under "do I have filters"
+      const catKey = normalize(nameQ);
+      if (CATEGORY_QUERIES[catKey]) {
+        const found = activeItems.filter(CATEGORY_QUERIES[catKey]);
+        if (found.length > 1) {
+          const result = multiItemReply(catKey, found);
+          return { ...result, reply: maybeProactiveFollowUp(result.reply, text) };
+        }
+      }
+
       const resolved = resolveItem(nameQ, activeItems);
       if (resolved.reply && !resolved.item)
         return { reply: resolved.reply, candidates: resolved.candidates };
@@ -470,25 +1038,42 @@ export function handleChatMessage(raw: string, ctx: ChatContext): ChatResult {
             : "";
         const lowBit = low ? " That's low." : " Looking fine.";
         return {
-          reply: `You have ${formatQty(i.quantity)} ${i.unit} of ${i.name} (${i.folder}).${minBit}${lowBit}`,
+          reply: maybeProactiveFollowUp(
+            `You have ${formatQty(i.quantity)} ${i.unit} of ${i.name} (${i.folder}).${minBit}${lowBit}`,
+            text
+          ),
         };
       }
     }
   }
 
-  // Bare item name → treat as query
+  // Bare item name → treat as query (or category)
   {
+    if (CATEGORY_QUERIES[n]) {
+      const found = activeItems.filter(CATEGORY_QUERIES[n]);
+      if (found.length > 1) {
+        const result = multiItemReply(n, found);
+        return { ...result, reply: maybeProactiveFollowUp(result.reply, text) };
+      }
+    }
+
     const matches = findMatches(text, activeItems, 5);
-    if (matches.length === 1 && matches[0].score >= 60) {
+    if (matches.length === 1 && matches[0].score >= 55) {
       const i = matches[0].item;
       const low = isLowStock(i);
       return {
-        reply: `${i.name}: ${formatQty(i.quantity)} ${i.unit} in ${i.folder}${
-          low ? " — low" : ""
-        }.`,
+        reply: maybeProactiveFollowUp(
+          `${i.name}: ${formatQty(i.quantity)} ${i.unit} in ${i.folder}${low ? " — low" : ""}.`,
+          text
+        ),
       };
     }
     if (matches.length > 1 && matches[0].score >= 50) {
+      // If all match a clear category pattern and scores close, list them
+      const close = matches.filter((m) => m.score >= matches[0].score - 15);
+      if (close.length >= 3 && matches[0].score < 90) {
+        return multiItemReply("matches", close.map((m) => m.item));
+      }
       const cands = matches.slice(0, 3).map((m) => m.item);
       return {
         reply: `Which one?\n${cands.map((c, i) => `${i + 1}. ${c.name} (${c.folder})`).join("\n")}`,
@@ -505,8 +1090,9 @@ export function handleChatMessage(raw: string, ctx: ChatContext): ChatResult {
 
 export const SUGGESTION_CHIPS = [
   "What's low?",
+  "How's the house looking?",
   "Bathroom status",
   "Do I have toilet paper?",
-  "Set detergent pods to 2",
-  "Use 1 paper towels",
+  "What's critically low?",
+  "Find gloves",
 ] as const;

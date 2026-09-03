@@ -11,6 +11,7 @@ const nav = [
   { href: "/low-stock", label: "Low" },
   { href: "/restock", label: "Restock" },
   { href: "/add", label: "Add" },
+  { href: "/assist", label: "Assist", accent: true },
   { href: "/data", label: "Data" },
 ];
 
@@ -32,7 +33,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <ThemeToggle />
         </div>
-        <nav className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-3 pb-3">
+        <nav className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-3 pb-3 scrollbar-none">
           {nav.map((item) => {
             const active =
               item.href === "/"
@@ -42,17 +43,34 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               (item.href === "/low-stock" && low > 0) ||
               (item.href === "/count" && needs > 0);
             const badge = item.href === "/count" ? needs : low;
+            const isAssist = item.href === "/assist";
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 className={`relative shrink-0 rounded-xl px-3.5 py-2 text-sm font-medium ${
                   active
-                    ? "bg-accent text-white"
-                    : "bg-surface-2 text-ink-muted hover:bg-surface-3 hover:text-ink"
+                    ? isAssist
+                      ? "bg-gradient-to-r from-sky-500 to-indigo-500 text-white shadow-sm shadow-sky-500/30"
+                      : "bg-accent text-white"
+                    : isAssist
+                      ? "bg-sky-500/10 text-sky-700 ring-1 ring-sky-500/30 dark:text-sky-300"
+                      : "bg-surface-2 text-ink-muted hover:bg-surface-3 hover:text-ink"
                 }`}
               >
-                {item.label}
+                {isAssist ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        active ? "bg-white" : "bg-sky-500 animate-pulse"
+                      }`}
+                      aria-hidden
+                    />
+                    {item.label}
+                  </span>
+                ) : (
+                  item.label
+                )}
                 {showBadge ? (
                   <span className="ml-1.5 inline-flex min-w-5 items-center justify-center rounded-full bg-white/20 px-1.5 text-[11px] tabular-nums">
                     {badge}
@@ -63,7 +81,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           })}
         </nav>
       </header>
-      <main className="mx-auto max-w-5xl px-4 py-4 pb-24">
+      <main className="mx-auto max-w-5xl px-4 py-4 pb-[max(6rem,calc(env(safe-area-inset-bottom)+4rem))]">
         {!ready ? (
           <div className="rounded-2xl bg-surface p-8 text-center text-ink-muted shadow-soft">
             Loading inventory…

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRef, useState } from "react";
 import { useInventory } from "@/context/InventoryContext";
 import { InventoryChat } from "@/components/InventoryChat";
@@ -43,7 +44,7 @@ export default function DataPage() {
   };
 
   return (
-    <div className="mx-auto max-w-lg space-y-4">
+    <div className="mx-auto max-w-lg space-y-4 pb-[env(safe-area-inset-bottom)]">
       <div>
         <h1 className="text-xl font-semibold text-ink">Data</h1>
         <p className="text-sm text-ink-muted">
@@ -56,10 +57,24 @@ export default function DataPage() {
         <p className="font-semibold">Install on iPhone</p>
         <p className="mt-1 text-ink-muted">
           Safari → Share → <strong>Add to Home Screen</strong> for a full-screen app with offline shell caching.
+          Allow microphone for voice Assist.
         </p>
       </section>
 
-      <InventoryChat />
+      <Link
+        href="/assist"
+        className="flex items-center justify-between rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 px-4 py-3.5 text-white shadow-soft"
+      >
+        <div>
+          <p className="font-semibold">Open Assist (Jarvis)</p>
+          <p className="text-xs text-sky-100/90">Voice + chat · primary assistant UI</p>
+        </div>
+        <span className="text-lg" aria-hidden>
+          →
+        </span>
+      </Link>
+
+      <InventoryChat variant="compact" />
 
       {message ? (
         <div className="rounded-xl bg-accent-soft px-4 py-3 text-sm text-accent">{message}</div>

@@ -60,3 +60,19 @@ input[type="number"] {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Assist / Jarvis voice UI */
+.assist-glass {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+@keyframes mic-pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.45); }
+  70% { box-shadow: 0 0 0 16px rgba(56, 189, 248, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0); }
+}
+
+.mic-pulse {
+  animation: mic-pulse-ring 1.4s ease-out infinite;
+}
