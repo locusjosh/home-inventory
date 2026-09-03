@@ -24,7 +24,7 @@ export function ItemCard({ item, onQuantity, showMove, onMove }: Props) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <Link
-            href={`/items/${encodeURIComponent(item.id)}`}
+            href={`/items/edit/?id=${encodeURIComponent(item.id)}`}
             className="block truncate text-base font-semibold text-ink hover:text-accent"
           >
             {item.name}

@@ -42,7 +42,7 @@ export default function RestockPage() {
             {items.map((item) => (
               <li key={item.id} className="py-3 first:pt-0 last:pb-0">
                 <Link
-                  href={`/items/${encodeURIComponent(item.id)}`}
+                  href={`/items/edit/?id=${encodeURIComponent(item.id)}`}
                   className="block font-medium text-ink hover:text-accent"
                 >
                   {item.name}

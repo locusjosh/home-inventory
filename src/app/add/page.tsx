@@ -31,7 +31,7 @@ export default function AddItemPage() {
       notes: notes.trim() || null,
       attributes: [],
     });
-    router.push(`/items/${encodeURIComponent(item.id)}`);
+    router.push(`/items/edit/?id=${encodeURIComponent(item.id)}`);
   };
 
   return (

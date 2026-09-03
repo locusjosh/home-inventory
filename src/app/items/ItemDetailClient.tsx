@@ -2,14 +2,14 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useInventory } from "@/context/InventoryContext";
 import { FOLDERS, type Attribute } from "@/lib/types";
 import { QuantityStepper } from "@/components/QuantityStepper";
 
 export default function ItemDetailPage() {
-  const params = useParams<{ id: string }>();
-  const id = decodeURIComponent(params.id);
+  const searchParams = useSearchParams();
+  const id = searchParams.get("id") ?? "";
   const router = useRouter();
   const { items, updateItem, updateQuantity, archiveItem, deleteItem } = useInventory();
   const item = items.find((i) => i.id === id);

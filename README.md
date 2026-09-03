@@ -1,5 +1,9 @@
 # Home Inventory
 
+**Live:** https://locusjosh.github.io/home-inventory/
+
+> Static export on GitHub Pages with `basePath: /home-inventory`. Use Next.js `Link` / `useRouter` (basePath is applied automatically). Seed data is imported at build time from `data/seed.json`.
+
 Mobile-first home inventory webapp (Sortly replacement) built with Next.js App Router, TypeScript, and Tailwind CSS.
 
 ## Features
@@ -29,16 +33,19 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000
+Open http://localhost:3000/home-inventory/
 
 ```bash
 npm run build
-npm start
+# writes static site to out/
+touch out/.nojekyll
+npx gh-pages -d out --repo https://github.com/locusjosh/home-inventory.git
 ```
 
 ## Tech
 
 - Next.js 15 (App Router) + React 19 + TypeScript
+- Static export (`output: 'export'`) with `basePath` / `assetPrefix` `/home-inventory`
 - Tailwind CSS
 - Client-side persistence via localStorage (seeded on first load)
 - No auth / no backend
@@ -50,6 +57,6 @@ npm start
 | `/` | Stock counts, folder chips, search |
 | `/low-stock` | Low-stock list |
 | `/restock` | Shopping / restock list by vendor |
-| `/items/[id]` | Edit item details |
+| `/items/edit?id=…` | Edit item details |
 | `/add` | Add item |
 | `/data` | Export / import / reset |
