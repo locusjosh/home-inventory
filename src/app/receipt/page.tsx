@@ -36,7 +36,7 @@ type Phase = "capture" | "reading" | "review" | "done" | "error";
 
 export default function ReceiptPage() {
   const router = useRouter();
-  const { activeItems, confirmReceiptAllocation, addItem } = useInventory();
+  const { activeItems, confirmReceiptAllocation } = useInventory();
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -167,35 +167,31 @@ export default function ReceiptPage() {
       ? new Date(`${date}T12:00:00`).toISOString()
       : new Date().toISOString();
 
-    const purchaseInputs = [];
+    const purchaseInputs: Array<{
+      itemId: string;
+      qty: number;
+      pricePaid: number;
+      listPrice: number | null;
+      discountAmount: number | null;
+      promoNotes: string | null;
+      vendor: string | null;
+      source: "receipt";
+      alsoRestock: boolean;
+      purchasedAt: string;
+      rawLine: string;
+      ocrConfidence: number;
+      createDraft?: ItemDraft;
+    }> = [];
+
     for (const line of lines) {
       if (line.action === "skip") continue;
-
-      let itemId = line.selectedItemId;
-      if (line.action === "create") {
-        const draft: ItemDraft = {
-          name: line.description.trim() || "Receipt item",
-          folder: line.newFolder || "Kitchen",
-          quantity: 0,
-          unit: "units",
-          minLevel: 1,
-          price: line.qty > 0 ? Math.round((line.price / line.qty) * 100) / 100 : line.price,
-          notes: null,
-          vendor: vendor.trim() || null,
-          attributes: [],
-        };
-        const created = addItem(draft);
-        itemId = created.id;
-      }
-      if (!itemId) continue;
 
       const promoNotes =
         line.discountAmount && line.discountAmount > 0
           ? `Receipt discount $${line.discountAmount.toFixed(2)}`
           : null;
 
-      purchaseInputs.push({
-        itemId,
+      const base = {
         qty: line.qty > 0 ? line.qty : 1,
         pricePaid: Math.max(0, line.price),
         listPrice: line.listPrice,
@@ -208,7 +204,32 @@ export default function ReceiptPage() {
         rawLine: line.raw,
         ocrConfidence:
           line.ocrConfidence === "high" ? 85 : line.ocrConfidence === "medium" ? 60 : 35,
-      });
+      };
+
+      if (line.action === "create") {
+        purchaseInputs.push({
+          ...base,
+          itemId: "",
+          createDraft: {
+            name: line.description.trim() || "Receipt item",
+            folder: line.newFolder || "Kitchen",
+            quantity: 0,
+            unit: "units",
+            minLevel: 1,
+            price:
+              line.qty > 0
+                ? Math.round((line.price / line.qty) * 100) / 100
+                : line.price,
+            notes: null,
+            vendor: vendor.trim() || null,
+            attributes: [],
+          },
+        });
+        continue;
+      }
+
+      if (!line.selectedItemId) continue;
+      purchaseInputs.push({ ...base, itemId: line.selectedItemId });
     }
 
     if (purchaseInputs.length === 0) {
@@ -230,7 +251,7 @@ export default function ReceiptPage() {
     });
 
     if (!result) {
-      setError("Couldn’t save purchases.");
+      setError("Could not save purchases.");
       return;
     }
     setDoneCount(result.purchases.length);

@@ -35,7 +35,7 @@ type InventoryContextValue = {
   /** Batch-log purchases from a receipt confirm (one persist). */
   confirmReceiptAllocation: (args: {
     receipt: Omit<ReceiptRecord, "id" | "createdAt"> & { id?: string };
-    lines: LogPurchaseInput[];
+    lines: (LogPurchaseInput & { createDraft?: ItemDraft })[];
   }) => { receiptId: string; purchases: Purchase[] } | null;
   getPurchasesForItem: (itemId: string) => Purchase[];
   getLastPurchase: (itemId: string) => Purchase | null;
@@ -226,7 +226,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
   const confirmReceiptAllocation = useCallback(
     (args: {
       receipt: Omit<ReceiptRecord, "id" | "createdAt"> & { id?: string };
-      lines: LogPurchaseInput[];
+      lines: (LogPurchaseInput & { createDraft?: ItemDraft })[];
     }) => {
       if (!state) return null;
       const receiptId = args.receipt.id || uid("receipt");
@@ -247,13 +247,37 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       let nextItems = [...state.items];
 
       for (const input of args.lines) {
-        const item = nextItems.find((i) => i.id === input.itemId);
+        let itemId = input.itemId;
+        if (input.createDraft) {
+          const d = input.createDraft;
+          const created: InventoryItem = {
+            id: uid("local"),
+            sortlyId: null,
+            name: d.name.trim(),
+            folder: d.folder,
+            group: null,
+            attributes: d.attributes ?? [],
+            quantity: d.quantity ?? 0,
+            unit: d.unit || "units",
+            minLevel: d.minLevel,
+            price: d.price,
+            notes: d.notes,
+            vendor: d.vendor,
+            archived: false,
+            lastCountedAt: null,
+            lastVendor: d.vendor,
+          };
+          nextItems = [created, ...nextItems];
+          itemId = created.id;
+        }
+        const item = nextItems.find((i) => i.id === itemId);
         if (!item) continue;
+        const resolvedInput = { ...input, itemId: item.id };
         const purchase = buildPurchase(
-          { ...input, receiptId, source: input.source ?? "receipt" },
+          { ...resolvedInput, receiptId, source: resolvedInput.source ?? "receipt" },
           item
         );
-        const alsoRestock = input.alsoRestock !== false;
+        const alsoRestock = resolvedInput.alsoRestock !== false;
         nextItems = nextItems.map((i) =>
           applyPurchaseToItem(i, purchase, alsoRestock)
         );
