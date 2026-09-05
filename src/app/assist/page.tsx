@@ -5,7 +5,7 @@ import { InventoryChat } from "@/components/InventoryChat";
 
 export default function AssistPage() {
   return (
-    <div className="mx-auto flex max-w-lg flex-col gap-4 pb-[env(safe-area-inset-bottom)]">
+    <div className="mx-auto flex max-w-lg flex-col gap-4 pb-2 md:pb-0">
       <div className="flex items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-semibold text-ink">Assist</h1>

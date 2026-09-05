@@ -97,6 +97,10 @@ export default function HomePage() {
             <p className="mt-1 text-sm text-ink-muted">
               {myItems.length} items · {roomCount} rooms
             </p>
+            <p className="mt-1.5 text-xs leading-snug text-ink-muted">
+              Stock health: share of items at or above their min level
+              ({myItems.length - lowStockItems.length}/{myItems.length} OK).
+            </p>
           </div>
         </div>
 

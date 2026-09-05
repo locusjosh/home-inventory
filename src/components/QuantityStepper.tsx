@@ -11,12 +11,12 @@ type Props = {
 
 export function QuantityStepper({ value, onChange, unit, compact }: Props) {
   const bump = (delta: number) => onChange(Math.max(0, value + delta));
-  const btn = compact ? "h-11 w-11" : "h-12 w-12";
+  const btn = compact ? "h-12 w-12" : "h-12 w-12";
   const inputW = compact ? "w-14" : "w-[4.5rem]";
 
   return (
     <div
-      className={`inline-flex items-center gap-0.5 rounded-2xl bg-surface-2/90 p-1 ring-1 ring-surface-3/60 ${
+      className={`inline-flex items-center gap-0.5 rounded-2xl bg-surface-2 p-1 ring-1 ring-surface-3 ${
         compact ? "" : "shadow-soft"
       }`}
       onClick={(e) => e.stopPropagation()}

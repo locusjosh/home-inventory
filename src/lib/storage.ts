@@ -3,7 +3,7 @@ import seed from "../../data/seed.json";
 import photoMap from "../../data/photo-map.json";
 
 const STORAGE_KEY = "home-inventory-v1";
-const CURRENT_VERSION = 3;
+const CURRENT_VERSION = 4;
 
 const PHOTO_MAP = photoMap as Record<string, string>;
 

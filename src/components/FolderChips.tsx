@@ -19,31 +19,34 @@ export function FolderChips({ selected, counts, lowCount, needsCount = 0, onSele
   ];
 
   return (
-    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-      {chips.map((c) => {
-        const active = selected === c.key;
-        return (
-          <button
-            key={c.key}
-            type="button"
-            onClick={() => onSelect(c.key)}
-            className={`shrink-0 rounded-full px-3.5 py-2.5 text-sm font-medium pressable focus-ring transition ${
-              active
-                ? c.key === "low"
-                  ? "bg-warn text-white shadow-soft"
-                  : c.key === "needs"
-                    ? "bg-accent text-white shadow-soft"
-                    : "bg-ink text-surface shadow-soft"
-                : "bg-surface/90 text-ink ring-1 ring-surface-3/80 hover:bg-surface-3/50"
-            }`}
-          >
-            {c.label}
-            <span className={`ml-1.5 tabular-nums ${active ? "opacity-90" : "text-ink-muted"}`}>
-              {c.count}
-            </span>
-          </button>
-        );
-      })}
+    <div className="chip-scroll">
+      <div className="flex gap-2 overflow-x-auto pb-1 pr-8 scrollbar-none">
+        {chips.map((c) => {
+          const active = selected === c.key;
+          return (
+            <button
+              key={c.key}
+              type="button"
+              onClick={() => onSelect(c.key)}
+              className={`shrink-0 rounded-full px-3.5 py-2.5 text-sm font-semibold pressable focus-ring transition ${
+                active
+                  ? c.key === "low"
+                    ? "bg-warn text-white shadow-soft"
+                    : c.key === "needs"
+                      ? "bg-accent text-white shadow-soft"
+                      : "bg-ink text-surface shadow-soft"
+                  : "bg-surface text-ink ring-1 ring-surface-3 hover:bg-surface-3/50"
+              }`}
+            >
+              {c.label}
+              <span className={`ml-1.5 tabular-nums ${active ? "opacity-90" : "text-ink-muted"}`}>
+                {c.count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="chip-scroll-fade" aria-hidden />
     </div>
   );
 }

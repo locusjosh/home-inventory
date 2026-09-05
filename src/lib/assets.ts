@@ -18,20 +18,22 @@ export function assetPath(path: string | null | undefined): string {
   return `${base}${p}`;
 }
 
-/** Soft category gradients for photo fallbacks */
+/** Strong saturated category gradients for photo fallbacks */
 export const FOLDER_GRADIENTS: Record<string, string> = {
-  Bathroom: "from-violet-400/90 via-fuchsia-400/70 to-rose-300/80",
-  Cleaning: "from-teal-400/90 via-cyan-400/70 to-sky-300/80",
-  Family: "from-rose-400/90 via-orange-300/70 to-amber-200/80",
-  Kitchen: "from-amber-400/90 via-orange-300/70 to-yellow-200/80",
-  Laundry: "from-sky-400/90 via-blue-400/70 to-indigo-300/80",
-  Maintenance: "from-slate-500/90 via-zinc-400/70 to-stone-300/80",
-  Outside: "from-emerald-400/90 via-lime-400/70 to-teal-300/80",
-  "Suggested Items": "from-indigo-400/90 via-violet-400/70 to-purple-300/80",
+  Bathroom: "from-violet-600 via-fuchsia-500 to-rose-400",
+  Cleaning: "from-teal-600 via-cyan-500 to-sky-400",
+  Family: "from-rose-600 via-orange-500 to-amber-400",
+  Kitchen: "from-amber-600 via-orange-500 to-yellow-400",
+  Laundry: "from-sky-600 via-blue-500 to-indigo-400",
+  Maintenance: "from-slate-700 via-zinc-500 to-stone-400",
+  Outside: "from-emerald-700 via-lime-500 to-teal-400",
+  "Suggested Items": "from-indigo-700 via-violet-500 to-purple-400",
 };
 
 export function folderGradient(folder: string): string {
-  return FOLDER_GRADIENTS[folder] ?? "from-indigo-400/90 via-slate-400/70 to-zinc-300/80";
+  return (
+    FOLDER_GRADIENTS[folder] ?? "from-indigo-700 via-slate-500 to-zinc-400"
+  );
 }
 
 /** Refined 1–2 letter monogram from item name */
@@ -42,4 +44,28 @@ export function itemMonogram(name: string): string {
     return (parts[0][0] + parts[1][0]).toUpperCase();
   }
   return (cleaned.slice(0, 2) || "?").toUpperCase();
+}
+
+/** Simple category glyph (unicode) for fallback tiles */
+export function folderGlyph(folder: string): string {
+  switch (folder) {
+    case "Bathroom":
+      return "🛁";
+    case "Cleaning":
+      return "✨";
+    case "Family":
+      return "🏠";
+    case "Kitchen":
+      return "🍳";
+    case "Laundry":
+      return "🧺";
+    case "Maintenance":
+      return "🔧";
+    case "Outside":
+      return "🌿";
+    case "Suggested Items":
+      return "💡";
+    default:
+      return "📦";
+  }
 }

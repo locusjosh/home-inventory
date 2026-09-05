@@ -4,33 +4,33 @@
 
 :root {
   --surface: 252 250 247;
-  --surface-2: 245 241 235;
-  --surface-3: 232 226 217;
-  --ink: 28 25 23;
-  --ink-muted: 120 113 108;
-  --accent: 79 70 229;
+  --surface-2: 243 238 231;
+  --surface-3: 214 205 194;
+  --ink: 24 22 20;
+  --ink-muted: 87 83 78;
+  --accent: 67 56 202;
   --accent-soft: 224 231 255;
-  --danger: 220 38 38;
-  --warn: 180 83 9;
-  --ring: 99 102 241;
+  --danger: 185 28 28;
+  --warn: 146 64 14;
+  --ring: 79 70 229;
   --glass: 255 255 255;
-  --hero-from: 245 241 235;
+  --hero-from: 243 238 231;
   --hero-to: 224 231 255;
 }
 
 html.dark {
-  --surface: 28 25 23;
+  --surface: 32 28 26;
   --surface-2: 18 16 15;
-  --surface-3: 41 37 36;
-  --ink: 245 241 235;
-  --ink-muted: 168 162 158;
-  --accent: 129 140 248;
+  --surface-3: 55 48 44;
+  --ink: 250 247 242;
+  --ink-muted: 186 178 170;
+  --accent: 165 180 252;
   --accent-soft: 49 46 129;
-  --danger: 248 113 113;
-  --warn: 251 191 36;
-  --ring: 165 180 252;
-  --glass: 28 25 23;
-  --hero-from: 28 25 23;
+  --danger: 252 165 165;
+  --warn: 252 211 77;
+  --ring: 199 210 254;
+  --glass: 32 28 26;
+  --hero-from: 32 28 26;
   --hero-to: 49 46 129;
 }
 
@@ -43,7 +43,7 @@ body {
 body {
   background:
     radial-gradient(1200px 600px at 10% -10%, rgb(var(--accent-soft) / 0.45), transparent 55%),
-    radial-gradient(900px 500px at 100% 0%, rgb(var(--warn) / 0.08), transparent 50%),
+    radial-gradient(900px 500px at 100% 0%, rgb(var(--warn) / 0.1), transparent 50%),
     rgb(var(--surface-2));
   color: rgb(var(--ink));
   -webkit-font-smoothing: antialiased;
@@ -55,7 +55,7 @@ body {
 }
 
 ::selection {
-  background: rgb(var(--accent) / 0.2);
+  background: rgb(var(--accent) / 0.25);
 }
 
 input[type="number"]::-webkit-inner-spin-button,
@@ -79,21 +79,39 @@ input[type="number"] {
 
 @layer components {
   .card-lux {
-    @apply rounded-2xl border border-surface-3/70 bg-surface shadow-lux transition duration-200;
+    @apply rounded-2xl border border-surface-3 bg-surface shadow-lux transition duration-200;
   }
   .pressable {
     @apply transition duration-150 ease-out active:scale-[0.97];
   }
   .focus-ring {
-    @apply outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--ring))]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-2;
+    @apply outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--ring))]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-2;
   }
   .glass-nav {
-    @apply border-surface-3/60 bg-[rgb(var(--glass)/0.72)] backdrop-blur-xl;
+    @apply border-surface-3 bg-[rgb(var(--glass)/0.88)] backdrop-blur-xl;
     -webkit-backdrop-filter: blur(20px);
+  }
+  .chip-scroll {
+    @apply relative;
+  }
+  .chip-scroll-fade {
+    @apply pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-[rgb(var(--surface-2))] to-transparent;
+  }
+  .skeleton {
+    @apply animate-pulse rounded-2xl bg-surface-3/70;
   }
 }
 
-/* Assist / Jarvis voice UI */
+/* Assist panel — warm ink, not pure black void */
+.assist-panel {
+  background: linear-gradient(
+    165deg,
+    rgb(45 40 55) 0%,
+    rgb(36 33 48) 45%,
+    rgb(28 27 38) 100%
+  );
+}
+
 .assist-glass {
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);

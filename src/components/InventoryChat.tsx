@@ -450,11 +450,11 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
 
   return (
     <section
-      className={`relative flex flex-col overflow-hidden rounded-3xl border border-white/12 shadow-lux-lg ${
+      className={`relative flex flex-col overflow-hidden rounded-3xl border border-indigo-300/20 shadow-lux-lg assist-panel assist-glass text-stone-100 ${
         isFull
-          ? "min-h-[calc(100dvh-11rem)] bg-gradient-to-b from-stone-900 via-neutral-900 to-stone-950 text-stone-100"
-          : "bg-gradient-to-b from-stone-900/95 via-neutral-900 to-stone-950 text-stone-100"
-      } assist-glass`}
+          ? "min-h-[calc(100dvh-14.5rem)] md:min-h-[calc(100dvh-12rem)]"
+          : ""
+      }`}
     >
       {/* Ambient glow when listening */}
       <div
@@ -492,7 +492,7 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
                 ? "bg-sky-500/20 text-indigo-300"
                 : status === "speaking"
                   ? "bg-violet-500/20 text-violet-300"
-                  : "bg-white/5 text-stone-400"
+                  : "bg-white/10 text-stone-200"
             }`}
             aria-live="polite"
           >
@@ -589,7 +589,7 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
             key={chip}
             type="button"
             onClick={() => send(chip)}
-            className="rounded-full bg-white/5 px-3 py-1.5 text-xs font-medium text-stone-300 ring-1 ring-white/10 active:scale-95"
+            className="rounded-full bg-white/10 px-3 py-2 text-xs font-semibold text-stone-100 ring-1 ring-white/20 active:scale-95"
           >
             {chip}
           </button>
@@ -612,7 +612,7 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
       ) : null}
 
       {/* Mic + input */}
-      <div className="relative z-10 border-t border-white/10 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+      <div className="relative z-10 border-t border-white/10 px-3 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] md:pb-3">
         <div className="mb-3 flex flex-col items-center gap-2">
           {voiceSupported ? (
             <>

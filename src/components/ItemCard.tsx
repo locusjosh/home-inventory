@@ -46,8 +46,8 @@ export function ItemCard({
             >
               {item.name}
             </Link>
-            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-ink-muted">
-              <span className="rounded-md bg-surface-2 px-1.5 py-0.5">{item.folder}</span>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] font-medium text-ink-muted">
+              <span className="rounded-md bg-surface-2 px-1.5 py-0.5 ring-1 ring-surface-3">{item.folder}</span>
               {low ? (
                 <span className="rounded-md bg-warn/15 px-1.5 py-0.5 font-medium text-warn">
                   Low
@@ -72,7 +72,7 @@ export function ItemCard({
             <button
               type="button"
               onClick={() => onMove(item.id)}
-              className="w-full rounded-xl bg-accent-soft px-3 py-2 text-xs font-medium text-accent pressable focus-ring"
+              className="min-h-tap w-full rounded-xl bg-accent-soft px-3 py-2.5 text-sm font-semibold text-accent ring-1 ring-accent/20 pressable focus-ring"
             >
               Move to folder…
             </button>

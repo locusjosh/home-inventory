@@ -67,7 +67,7 @@ export default function IdeasPage() {
                 onClick={() => {
                   if (confirm(`Archive “${item.name}”?`)) archiveItem(item.id);
                 }}
-                className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-medium text-ink-muted hover:text-ink"
+                className="min-h-tap flex-1 rounded-xl bg-surface-2 px-3 py-2.5 text-sm font-semibold text-ink-muted ring-1 ring-surface-3 hover:text-ink pressable focus-ring"
               >
                 Archive
               </button>
@@ -76,7 +76,7 @@ export default function IdeasPage() {
                 onClick={() => {
                   if (confirm(`Delete “${item.name}” permanently?`)) deleteItem(item.id);
                 }}
-                className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-medium text-danger hover:bg-danger/10"
+                className="min-h-tap rounded-xl bg-surface-2 px-3 py-2.5 text-sm font-semibold text-danger ring-1 ring-danger/25 hover:bg-danger/10 pressable focus-ring"
               >
                 Delete
               </button>

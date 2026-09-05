@@ -97,28 +97,33 @@ function CountModeInner() {
         </label>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-        {foldersWithItems.map((f) => {
-          const active = f === folder;
-          return (
-            <button
-              key={f}
-              type="button"
-              onClick={() => {
-                setFolder(f);
-                router.replace(`/count/?folder=${encodeURIComponent(f)}`, { scroll: false });
-              }}
-              className={`shrink-0 rounded-full px-3.5 py-2.5 text-sm font-medium pressable focus-ring ${
-                active ? "bg-accent text-white shadow-soft" : "bg-surface/90 text-ink ring-1 ring-surface-3/80"
-              }`}
-            >
-              {f}
-              <span className={`ml-1.5 tabular-nums ${active ? "opacity-90" : "text-ink-muted"}`}>
-                {folderCounts[f] ?? 0}
-              </span>
-            </button>
-          );
-        })}
+      <div className="chip-scroll">
+        <div className="flex gap-2 overflow-x-auto pb-1 pr-8 scrollbar-none">
+          {foldersWithItems.map((f) => {
+            const active = f === folder;
+            return (
+              <button
+                key={f}
+                type="button"
+                onClick={() => {
+                  setFolder(f);
+                  router.replace(`/count/?folder=${encodeURIComponent(f)}`, { scroll: false });
+                }}
+                className={`shrink-0 rounded-full px-3.5 py-2.5 text-sm font-semibold pressable focus-ring ${
+                  active
+                    ? "bg-accent text-white shadow-soft"
+                    : "bg-surface text-ink ring-1 ring-surface-3"
+                }`}
+              >
+                {f}
+                <span className={`ml-1.5 tabular-nums ${active ? "opacity-90" : "text-ink-muted"}`}>
+                  {folderCounts[f] ?? 0}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="chip-scroll-fade" aria-hidden />
       </div>
 
       {current ? (

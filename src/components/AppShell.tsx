@@ -21,9 +21,12 @@ const desktopNav = [
   { href: "/restock", label: "Restock" },
   { href: "/receipt", label: "Receipt" },
   { href: "/add", label: "Add" },
-  { href: "/assist", label: "Assist", accent: true },
+  { href: "/assist", label: "Assist" },
+  { href: "/more", label: "More" },
   { href: "/data", label: "Data" },
 ];
+
+const MORE_NESTED = ["/ideas", "/low-stock", "/receipt", "/add", "/data"] as const;
 
 function TabIcon({ name, active }: { name: string; active: boolean }) {
   const stroke = active ? "currentColor" : "currentColor";
@@ -83,6 +86,32 @@ function TabIcon({ name, active }: { name: string; active: boolean }) {
   }
 }
 
+function HydrationSkeleton() {
+  return (
+    <div className="space-y-5" aria-busy="true" aria-label="Loading inventory">
+      <div className="skeleton h-44 w-full rounded-3xl" />
+      <div className="flex gap-2">
+        <div className="skeleton h-10 w-20 rounded-full" />
+        <div className="skeleton h-10 w-28 rounded-full" />
+        <div className="skeleton h-10 w-24 rounded-full" />
+        <div className="skeleton h-10 w-20 rounded-full" />
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="overflow-hidden rounded-2xl border border-surface-3 bg-surface">
+            <div className="skeleton aspect-[4/3] rounded-none" />
+            <div className="space-y-2 p-3">
+              <div className="skeleton h-4 w-3/4" />
+              <div className="skeleton h-3 w-1/2" />
+              <div className="skeleton mx-auto h-11 w-28" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { ready, lowStockItems, needsCountItems, ideaItems } = useInventory();
@@ -90,14 +119,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const needs = needsCountItems.length;
   const ideas = ideaItems.length;
 
-  const isActive = (href: string) =>
-    href === "/"
-      ? pathname === "/"
-      : href === "/more"
-        ? ["/more", "/ideas", "/low-stock", "/receipt", "/add", "/data"].some(
-            (p) => pathname === p || pathname.startsWith(p + "/")
-          )
-        : pathname.startsWith(href);
+  const isNestedMore = MORE_NESTED.some(
+    (p) => pathname === p || pathname.startsWith(p + "/")
+  );
+
+  /** Desktop: exact destinations. Mobile More also covers nested tools. */
+  const isActive = (href: string, opts?: { mobileMore?: boolean }) => {
+    if (href === "/") return pathname === "/";
+    if (href === "/more") {
+      if (opts?.mobileMore) {
+        return pathname === "/more" || pathname.startsWith("/more/") || isNestedMore;
+      }
+      return pathname === "/more" || pathname.startsWith("/more/");
+    }
+    return pathname === href || pathname.startsWith(href + "/");
+  };
 
   return (
     <div className="min-h-dvh text-ink">
@@ -111,34 +147,37 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <ThemeToggle />
         </div>
-        {/* Desktop nav */}
         <nav className="mx-auto hidden max-w-5xl gap-1 overflow-x-auto px-3 pb-3 scrollbar-none md:flex">
           {desktopNav.map((item) => {
             const active = isActive(item.href);
             const showBadge =
               (item.href === "/low-stock" && low > 0) ||
               (item.href === "/count" && needs > 0) ||
-              (item.href === "/ideas" && ideas > 0);
+              (item.href === "/ideas" && ideas > 0) ||
+              (item.href === "/restock" && low > 0);
             const badge =
-              item.href === "/count" ? needs : item.href === "/ideas" ? ideas : low;
-            const isAssist = item.href === "/assist";
+              item.href === "/count"
+                ? needs
+                : item.href === "/ideas"
+                  ? ideas
+                  : low;
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 className={`relative shrink-0 rounded-xl px-3.5 py-2 text-sm font-medium pressable focus-ring ${
                   active
-                    ? isAssist
-                      ? "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-lux"
-                      : "bg-accent text-white shadow-soft"
-                    : isAssist
-                      ? "bg-accent-soft/70 text-accent ring-1 ring-accent/20"
-                      : "bg-surface/80 text-ink-muted hover:bg-surface-3/60 hover:text-ink"
+                    ? "bg-accent text-white shadow-soft"
+                    : "bg-surface text-ink-muted ring-1 ring-surface-3 hover:bg-surface-3/60 hover:text-ink"
                 }`}
               >
                 {item.label}
                 {showBadge ? (
-                  <span className="ml-1.5 inline-flex min-w-5 items-center justify-center rounded-full bg-white/20 px-1.5 text-[11px] tabular-nums">
+                  <span
+                    className={`ml-1.5 inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums ${
+                      active ? "bg-white/25 text-white" : "bg-warn/15 text-warn"
+                    }`}
+                  >
                     {badge}
                   </span>
                 ) : null}
@@ -149,35 +188,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-5 pb-[max(7.5rem,calc(env(safe-area-inset-bottom)+5.5rem))] md:pb-10">
-        {!ready ? (
-          <div className="card-lux p-10 text-center text-ink-muted">Loading inventory…</div>
-        ) : (
-          <div className="animate-fade-up">{children}</div>
-        )}
+        {!ready ? <HydrationSkeleton /> : <div className="animate-fade-up">{children}</div>}
       </main>
 
-      {/* Mobile bottom tab bar */}
       <nav
-        className="fixed inset-x-0 bottom-0 z-50 border-t border-surface-3/70 bg-[rgb(var(--glass)/0.85)] backdrop-blur-xl md:hidden"
+        className="fixed inset-x-0 bottom-0 z-50 border-t border-surface-3 bg-[rgb(var(--glass)/0.92)] backdrop-blur-xl md:hidden"
         style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
         aria-label="Primary"
       >
         <div className="mx-auto grid max-w-lg grid-cols-5 gap-0.5 px-1 pt-1.5">
           {primaryTabs.map((tab) => {
-            const active = isActive(tab.href);
+            const active = isActive(tab.href, { mobileMore: true });
             const badge =
               tab.href === "/count" && needs > 0
                 ? needs
                 : tab.href === "/restock" && low > 0
                   ? low
-                  : tab.href === "/more" && ideas > 0
-                    ? ideas
-                    : 0;
+                  : 0;
             return (
               <Link
                 key={tab.href}
                 href={tab.href}
-                className={`relative flex min-h-tap flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1.5 text-[10px] font-medium pressable focus-ring ${
+                className={`relative flex min-h-tap flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1.5 text-[10px] font-semibold pressable focus-ring ${
                   active ? "text-accent" : "text-ink-muted"
                 }`}
               >

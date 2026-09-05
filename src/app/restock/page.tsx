@@ -15,6 +15,52 @@ import {
   shopWalmartUrl,
 } from "@/lib/utils";
 
+function ShopMenu({ item }: { item: InventoryItem }) {
+  const [open, setOpen] = useState(false);
+  const links = [
+    { label: "Amazon", href: shopAmazonUrl(item) },
+    { label: "Costco", href: shopCostcoUrl(item.name) },
+    { label: "Walmart", href: shopWalmartUrl(item.name) },
+  ];
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="min-h-tap rounded-xl bg-surface-2 px-3.5 py-2.5 text-sm font-semibold text-ink ring-1 ring-surface-3 pressable focus-ring"
+      >
+        Shop ▾
+      </button>
+      {open ? (
+        <>
+          <button
+            type="button"
+            aria-label="Close shop menu"
+            className="fixed inset-0 z-40 cursor-default"
+            onClick={() => setOpen(false)}
+          />
+          <div className="absolute left-0 z-50 mt-1 min-w-[10rem] overflow-hidden rounded-xl border border-surface-3 bg-surface shadow-lux-lg">
+            {links.map((l) => (
+              <a
+                key={l.label}
+                href={l.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setOpen(false)}
+                className="block px-4 py-3 text-sm font-medium text-ink hover:bg-surface-2"
+              >
+                {l.label}
+              </a>
+            ))}
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
 export default function RestockPage() {
   const { lowStockItems, markRestocked, logPurchase, getLastPurchase } =
     useInventory();
@@ -76,7 +122,7 @@ export default function RestockPage() {
         <div>
           <h1 className="font-display text-2xl font-semibold text-ink">Restock list</h1>
           <p className="text-sm text-ink-muted">
-            Low-stock items with shop links & need-to-buy qty
+            Low-stock items with need-to-buy qty
             {lowStockItems.some((i) => i.price != null)
               ? ` · ~${formatPrice(total)} listed`
               : ""}
@@ -85,7 +131,7 @@ export default function RestockPage() {
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
           <Link
             href="/receipt"
-            className="rounded-xl bg-accent px-3 py-2.5 text-center text-sm font-semibold text-white"
+            className="min-h-tap rounded-xl bg-accent px-3 py-2.5 text-center text-sm font-semibold text-white pressable focus-ring"
           >
             Scan receipt
           </Link>
@@ -93,7 +139,7 @@ export default function RestockPage() {
             <button
               type="button"
               onClick={() => void copyList()}
-              className="rounded-xl bg-surface-2 px-3 py-2.5 text-sm font-medium text-ink"
+              className="min-h-tap rounded-xl bg-surface-2 px-3 py-2.5 text-sm font-semibold text-ink ring-1 ring-surface-3 pressable focus-ring"
             >
               {copied ? "Copied!" : "Copy list"}
             </button>
@@ -111,7 +157,7 @@ export default function RestockPage() {
               const need = needToBuy(item);
               const last = getLastPurchase(item.id);
               return (
-                <li key={item.id} className="flex gap-3 py-3 first:pt-0 last:pb-0">
+                <li key={item.id} className="flex gap-3 py-4 first:pt-0 last:pb-0">
                   <Link
                     href={`/items/edit/?id=${encodeURIComponent(item.id)}`}
                     className="shrink-0 focus-ring rounded-xl"
@@ -123,78 +169,82 @@ export default function RestockPage() {
                     />
                   </Link>
                   <div className="min-w-0 flex-1">
-                  <Link
-                    href={`/items/edit/?id=${encodeURIComponent(item.id)}`}
-                    className="block font-medium text-ink hover:text-accent"
-                  >
-                    {item.name}
-                  </Link>
-                  {last ? (
-                    <p className="mt-0.5 text-xs text-ink-muted">
-                      Last: {formatPrice(last.pricePaid)}
-                      {last.vendor ? ` at ${last.vendor}` : ""}
-                      {last.unitPricePaid != null
-                        ? ` · ${formatPrice(last.unitPricePaid)}/${last.unit}`
-                        : ""}
-                    </p>
-                  ) : null}
-                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-ink-muted">
-                    <span>
-                      Have {item.quantity} {item.unit} · min {item.minLevel}
-                    </span>
-                    <span className="font-semibold text-warn">
-                      Need {need} {item.unit}
-                    </span>
-                    {item.price != null ? (
-                      <span>{formatPrice(item.price)}</span>
+                    <Link
+                      href={`/items/edit/?id=${encodeURIComponent(item.id)}`}
+                      className="block font-semibold text-ink hover:text-accent"
+                    >
+                      {item.name}
+                    </Link>
+
+                    <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm sm:grid-cols-4">
+                      <div>
+                        <dt className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">
+                          Have
+                        </dt>
+                        <dd className="font-semibold tabular-nums text-ink">
+                          {item.quantity} {item.unit}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">
+                          Min
+                        </dt>
+                        <dd className="font-semibold tabular-nums text-ink">
+                          {item.minLevel ?? "—"}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">
+                          Need
+                        </dt>
+                        <dd className="font-semibold tabular-nums text-warn">
+                          {need} {item.unit}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">
+                          Price
+                        </dt>
+                        <dd className="font-semibold tabular-nums text-ink">
+                          {item.price != null ? formatPrice(item.price) : "—"}
+                        </dd>
+                      </div>
+                    </dl>
+
+                    {last ? (
+                      <p className="mt-1.5 text-xs text-ink-muted">
+                        Last paid {formatPrice(last.pricePaid)}
+                        {last.vendor ? ` at ${last.vendor}` : ""}
+                        {last.unitPricePaid != null
+                          ? ` · ${formatPrice(last.unitPricePaid)}/${last.unit}`
+                          : ""}
+                      </p>
                     ) : null}
-                  </div>
-                  {item.notes ? (
-                    <p className="mt-1 text-sm text-ink-muted">{item.notes}</p>
-                  ) : null}
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <a
-                      href={shopAmazonUrl(item)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="rounded-lg bg-surface-2 px-2.5 py-1.5 text-xs font-medium text-ink"
-                    >
-                      Shop Amazon
-                    </a>
-                    <a
-                      href={shopCostcoUrl(item.name)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="rounded-lg bg-surface-2 px-2.5 py-1.5 text-xs font-medium text-ink"
-                    >
-                      Shop Costco
-                    </a>
-                    <a
-                      href={shopWalmartUrl(item.name)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="rounded-lg bg-surface-2 px-2.5 py-1.5 text-xs font-medium text-ink"
-                    >
-                      Shop Walmart
-                    </a>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSheetAlsoRestock(true);
-                        setSheetItem(item);
-                      }}
-                      className="rounded-lg bg-accent px-2.5 py-1.5 text-xs font-semibold text-white"
-                    >
-                      Log purchase
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onMarkRestocked(item)}
-                      className="rounded-lg bg-accent-soft px-2.5 py-1.5 text-xs font-semibold text-accent pressable"
-                    >
-                      Mark restocked
-                    </button>
-                  </div>
+
+                    {item.notes ? (
+                      <p className="mt-1 line-clamp-2 text-xs text-ink-muted">{item.notes}</p>
+                    ) : null}
+
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSheetAlsoRestock(true);
+                          setSheetItem(item);
+                        }}
+                        className="min-h-tap rounded-xl bg-accent px-3.5 py-2.5 text-sm font-semibold text-white pressable focus-ring"
+                      >
+                        Log purchase
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onMarkRestocked(item)}
+                        className="min-h-tap rounded-xl bg-accent-soft px-3.5 py-2.5 text-sm font-semibold text-accent ring-1 ring-accent/25 pressable focus-ring"
+                      >
+                        Mark restocked
+                      </button>
+                      <ShopMenu item={item} />
+                    </div>
                   </div>
                 </li>
               );
@@ -253,7 +303,7 @@ export default function RestockPage() {
               <button
                 type="button"
                 onClick={() => setPayPromptItem(null)}
-                className="flex-1 rounded-xl bg-surface-2 px-3 py-3 text-sm font-medium text-ink"
+                className="min-h-tap flex-1 rounded-xl bg-surface-2 px-3 py-3 text-sm font-semibold text-ink"
               >
                 Skip
               </button>
@@ -264,7 +314,7 @@ export default function RestockPage() {
                   setSheetItem(payPromptItem);
                   setPayPromptItem(null);
                 }}
-                className="flex-1 rounded-xl bg-accent px-3 py-3 text-sm font-semibold text-white"
+                className="min-h-tap flex-1 rounded-xl bg-accent px-3 py-3 text-sm font-semibold text-white"
               >
                 Log price
               </button>
