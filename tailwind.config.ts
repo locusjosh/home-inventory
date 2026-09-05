@@ -10,7 +10,8 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["ui-sans-serif","system-ui","-apple-system","Segoe UI","Roboto","Helvetica Neue","Arial","sans-serif"],
+        sans: ["var(--font-dm-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
+        display: ["var(--font-fraunces)", "ui-serif", "Georgia", "serif"],
       },
       colors: {
         surface: {
@@ -31,6 +32,18 @@ const config: Config = {
       },
       boxShadow: {
         soft: "0 1px 2px rgb(0 0 0 / 0.04), 0 4px 16px rgb(0 0 0 / 0.04)",
+        lux: "0 1px 2px rgb(0 0 0 / 0.03), 0 8px 24px rgb(0 0 0 / 0.06)",
+        "lux-lg": "0 4px 6px rgb(0 0 0 / 0.03), 0 16px 40px rgb(0 0 0 / 0.08)",
+      },
+      borderRadius: {
+        "2xl": "1rem",
+        "3xl": "1.25rem",
+      },
+      minHeight: {
+        tap: "44px",
+      },
+      minWidth: {
+        tap: "44px",
       },
     },
   },

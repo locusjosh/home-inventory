@@ -8,6 +8,7 @@ import { FOLDERS, type Attribute } from "@/lib/types";
 import { QuantityStepper } from "@/components/QuantityStepper";
 import { LogPurchaseSheet } from "@/components/LogPurchaseSheet";
 import { formatPrice } from "@/lib/utils";
+import { ItemImage } from "@/components/ItemImage";
 
 export default function ItemDetailPage() {
   const searchParams = useSearchParams();
@@ -60,7 +61,7 @@ export default function ItemDetailPage() {
   return (
     <div className="mx-auto max-w-lg space-y-4">
       <div className="flex items-center justify-between gap-2">
-        <Link href="/" className="text-sm text-accent">
+        <Link href="/" className="text-sm font-medium text-accent">
           ← Stock
         </Link>
         {item.archived ? (
@@ -68,7 +69,9 @@ export default function ItemDetailPage() {
         ) : null}
       </div>
 
-      <div className="rounded-2xl bg-surface p-4 shadow-soft space-y-3">
+      <div className="card-lux overflow-hidden">
+        <ItemImage item={item} aspect="aspect-[4/3]" className="rounded-none" />
+        <div className="space-y-3 p-4">
         <label className="block space-y-1">
           <span className="text-sm font-medium text-ink">Name</span>
           <input
@@ -314,6 +317,7 @@ export default function ItemDetailPage() {
         {item.sortlyId ? (
           <p className="text-xs text-ink-muted">Sortly ID: {item.sortlyId}</p>
         ) : null}
+        </div>
       </div>
 
       {showPurchase ? (

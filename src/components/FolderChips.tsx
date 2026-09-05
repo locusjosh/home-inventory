@@ -27,12 +27,14 @@ export function FolderChips({ selected, counts, lowCount, needsCount = 0, onSele
             key={c.key}
             type="button"
             onClick={() => onSelect(c.key)}
-            className={`shrink-0 rounded-full px-3.5 py-2 text-sm font-medium transition ${
+            className={`shrink-0 rounded-full px-3.5 py-2.5 text-sm font-medium pressable focus-ring transition ${
               active
-                ? c.key === "low" || c.key === "needs"
-                  ? "bg-warn text-white"
-                  : "bg-accent text-white"
-                : "bg-surface-2 text-ink hover:bg-surface-3"
+                ? c.key === "low"
+                  ? "bg-warn text-white shadow-soft"
+                  : c.key === "needs"
+                    ? "bg-accent text-white shadow-soft"
+                    : "bg-ink text-surface shadow-soft"
+                : "bg-surface/90 text-ink ring-1 ring-surface-3/80 hover:bg-surface-3/50"
             }`}
           >
             {c.label}

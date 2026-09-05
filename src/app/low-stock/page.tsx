@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useInventory } from "@/context/InventoryContext";
 import { ItemCard } from "@/components/ItemCard";
+import { EmptyState } from "@/components/EmptyState";
 
 export default function LowStockPage() {
   const { lowStockItems, updateQuantity } = useInventory();
@@ -11,7 +12,7 @@ export default function LowStockPage() {
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-ink">Low stock</h1>
+          <h1 className="font-display text-2xl font-semibold text-ink">Low stock</h1>
           <p className="text-sm text-ink-muted">
             Quantity below min level ({lowStockItems.length})
           </p>
@@ -23,16 +24,14 @@ export default function LowStockPage() {
           Restock list
         </Link>
       </div>
-      <div className="grid gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {lowStockItems.map((item) => (
-          <ItemCard key={item.id} item={item} onQuantity={updateQuantity} />
+          <ItemCard key={item.id} item={item} onQuantity={updateQuantity} variant="grid" />
         ))}
-        {lowStockItems.length === 0 ? (
-          <div className="rounded-2xl bg-surface p-8 text-center text-ink-muted shadow-soft">
-            Nothing is low right now. Nice.
-          </div>
-        ) : null}
       </div>
+      {lowStockItems.length === 0 ? (
+        <EmptyState title="Nothing is low right now" description="Stock levels look healthy." />
+      ) : null}
     </div>
   );
 }

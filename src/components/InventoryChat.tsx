@@ -450,10 +450,10 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
 
   return (
     <section
-      className={`relative flex flex-col overflow-hidden rounded-2xl border border-white/10 shadow-soft ${
+      className={`relative flex flex-col overflow-hidden rounded-3xl border border-white/12 shadow-lux-lg ${
         isFull
-          ? "min-h-[calc(100dvh-9.5rem)] bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 text-slate-100"
-          : "bg-gradient-to-b from-slate-900/95 via-slate-900 to-slate-950 text-slate-100"
+          ? "min-h-[calc(100dvh-11rem)] bg-gradient-to-b from-stone-900 via-neutral-900 to-stone-950 text-stone-100"
+          : "bg-gradient-to-b from-stone-900/95 via-neutral-900 to-stone-950 text-stone-100"
       } assist-glass`}
     >
       {/* Ambient glow when listening */}
@@ -463,7 +463,7 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
         }`}
         aria-hidden
       >
-        <div className="absolute -left-20 top-10 h-56 w-56 rounded-full bg-sky-500/20 blur-3xl" />
+        <div className="absolute -left-20 top-10 h-56 w-56 rounded-full bg-indigo-500/25 blur-3xl" />
         <div className="absolute -right-16 bottom-24 h-48 w-48 rounded-full bg-indigo-500/20 blur-3xl" />
       </div>
 
@@ -481,7 +481,7 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
           <h2 className="font-semibold tracking-tight text-white">
             {isFull ? "Jarvis Assist" : "Assistant"}
           </h2>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-stone-400">
             On-device · Web Speech · no cloud AI
           </p>
         </div>
@@ -489,17 +489,17 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
           <div
             className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ${
               status === "listening"
-                ? "bg-sky-500/20 text-sky-300"
+                ? "bg-sky-500/20 text-indigo-300"
                 : status === "speaking"
                   ? "bg-violet-500/20 text-violet-300"
-                  : "bg-white/5 text-slate-400"
+                  : "bg-white/5 text-stone-400"
             }`}
             aria-live="polite"
           >
             <span
               className={`h-1.5 w-1.5 rounded-full ${
                 status === "listening"
-                  ? "animate-pulse bg-sky-400"
+                  ? "animate-pulse bg-indigo-400"
                   : status === "speaking"
                     ? "animate-pulse bg-violet-400"
                     : "bg-emerald-400/80"
@@ -512,7 +512,7 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
               type="button"
               onClick={toggleVoiceReplies}
               className={`text-[11px] font-medium ${
-                voiceReplies ? "text-sky-300" : "text-slate-500"
+                voiceReplies ? "text-indigo-300" : "text-stone-500"
               }`}
             >
               Voice replies {voiceReplies ? "on" : "off"}
@@ -537,15 +537,15 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
             <div
               className={`max-w-[88%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed shadow-sm ${
                 m.role === "user"
-                  ? "rounded-br-md bg-sky-600 text-white"
-                  : "rounded-bl-md border border-white/10 bg-white/5 text-slate-100 backdrop-blur"
+                  ? "rounded-br-md bg-indigo-500 text-white"
+                  : "rounded-bl-md border border-white/10 bg-white/5 text-stone-100 backdrop-blur"
               }`}
             >
               {m.text}
               {m.at ? (
                 <div
                   className={`mt-1 text-[10px] ${
-                    m.role === "user" ? "text-sky-100/70" : "text-slate-500"
+                    m.role === "user" ? "text-indigo-100/70" : "text-stone-500"
                   }`}
                 >
                   {formatTime(m.at)}
@@ -557,7 +557,7 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
 
         {interim ? (
           <div className="flex justify-end">
-            <div className="max-w-[88%] rounded-2xl rounded-br-md bg-sky-600/40 px-3.5 py-2 text-sm italic text-sky-100">
+            <div className="max-w-[88%] rounded-2xl rounded-br-md bg-indigo-500/40 px-3.5 py-2 text-sm italic text-indigo-100">
               {interim}
             </div>
           </div>
@@ -566,7 +566,7 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
 
       {pendingCandidates.length > 0 ? (
         <div className="relative z-10 flex flex-wrap gap-2 border-t border-white/5 px-3 py-2">
-          <span className="w-full text-[11px] font-medium uppercase tracking-wide text-slate-500">
+          <span className="w-full text-[11px] font-medium uppercase tracking-wide text-stone-500">
             Pick one
           </span>
           {pendingCandidates.map((c, i) => (
@@ -574,10 +574,10 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
               key={c.id}
               type="button"
               onClick={() => send(String(i + 1))}
-              className="rounded-full border border-sky-400/30 bg-sky-500/10 px-3 py-1.5 text-xs font-medium text-sky-200 active:scale-95"
+              className="rounded-full border border-indigo-400/30 bg-sky-500/10 px-3 py-1.5 text-xs font-medium text-sky-200 active:scale-95"
             >
               {i + 1}. {c.name}
-              <span className="ml-1 text-slate-500">({c.folder})</span>
+              <span className="ml-1 text-stone-500">({c.folder})</span>
             </button>
           ))}
         </div>
@@ -589,7 +589,7 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
             key={chip}
             type="button"
             onClick={() => send(chip)}
-            className="rounded-full bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-300 ring-1 ring-white/10 active:scale-95"
+            className="rounded-full bg-white/5 px-3 py-1.5 text-xs font-medium text-stone-300 ring-1 ring-white/10 active:scale-95"
           >
             {chip}
           </button>
@@ -598,11 +598,11 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
 
       {showSilentTip ? (
         <div className="relative z-10 border-t border-white/5 px-3 py-2">
-          <p className="rounded-xl bg-white/5 px-3 py-2 text-[11px] leading-relaxed text-slate-400">
+          <p className="rounded-xl bg-white/5 px-3 py-2 text-[11px] leading-relaxed text-stone-400">
             {SILENT_MODE_TIP}{" "}
             <button
               type="button"
-              className="text-sky-400 underline"
+              className="text-indigo-300 underline"
               onClick={() => setShowSilentTip(false)}
             >
               Dismiss
@@ -625,20 +625,20 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
                 }
                 className={`relative flex h-16 w-16 items-center justify-center rounded-full transition-transform active:scale-95 ${
                   status === "listening"
-                    ? "bg-sky-500 text-white shadow-[0_0_0_8px_rgba(56,189,248,0.25)] mic-pulse"
-                    : "bg-gradient-to-br from-sky-500 to-indigo-600 text-white shadow-lg shadow-sky-900/40"
+                    ? "bg-indigo-500 text-white shadow-[0_0_0_8px_rgba(129,140,248,0.28)] mic-pulse"
+                    : "bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-lg shadow-indigo-900/40"
                 }`}
               >
                 <MicIcon listening={status === "listening"} />
               </button>
-              <p className="text-center text-[11px] text-slate-500">
+              <p className="text-center text-[11px] text-stone-500">
                 {status === "listening"
                   ? "Listening… tap again to stop"
                   : "Tap mic to toggle · Safari: allow mic · Silent Mode may mute TTS"}
               </p>
             </>
           ) : (
-            <p className="rounded-xl bg-white/5 px-3 py-2 text-center text-xs text-slate-400">
+            <p className="rounded-xl bg-white/5 px-3 py-2 text-center text-xs text-stone-400">
               Voice not supported here. Type below — or open in Safari and Add
               to Home Screen for best mic support.
             </p>
@@ -654,12 +654,12 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
             placeholder="Ask or update…"
             autoComplete="off"
             enterKeyHint="send"
-            className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-white placeholder:text-slate-500 focus:border-sky-400/50 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+            className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-white placeholder:text-stone-500 focus:border-indigo-400/50 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
           />
           <button
             type="submit"
             disabled={!input.trim()}
-            className="shrink-0 rounded-xl bg-sky-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-40"
+            className="shrink-0 rounded-xl bg-indigo-500 px-4 py-3 text-sm font-semibold text-white disabled:opacity-40"
           >
             Send
           </button>

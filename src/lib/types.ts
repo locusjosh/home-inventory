@@ -49,6 +49,8 @@ export type InventoryItem = {
   lastCountedAt?: string | null;
   /** Last vendor used when logging a purchase */
   lastVendor?: string | null;
+  /** Public path like /item-photos/SID.jpg — use assetPath() for <img src> */
+  image?: string | null;
 };
 
 export type Purchase = {
@@ -108,6 +110,7 @@ export type ItemDraft = {
   vendor: string | null;
   attributes: Attribute[];
   archived?: boolean;
+  image?: string | null;
 };
 
 export type LogPurchaseInput = {

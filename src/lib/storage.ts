@@ -1,8 +1,27 @@
 import type { InventoryItem, InventoryState, Purchase, ReceiptRecord } from "./types";
 import seed from "../../data/seed.json";
+import photoMap from "../../data/photo-map.json";
 
 const STORAGE_KEY = "home-inventory-v1";
 const CURRENT_VERSION = 3;
+
+const PHOTO_MAP = photoMap as Record<string, string>;
+
+function resolveImage(
+  raw: Partial<InventoryItem> & { id: string }
+): string | null {
+  if (typeof raw.image === "string" && raw.image.length > 0) return raw.image;
+  const keys = [raw.sortlyId, raw.id].filter(
+    (k): k is string => typeof k === "string" && k.length > 0
+  );
+  for (const key of keys) {
+    if (PHOTO_MAP[key]) return PHOTO_MAP[key];
+    // Match SID-2 style duplicates to base Sortly id
+    const base = key.replace(/-\d+$/, "");
+    if (base !== key && PHOTO_MAP[base]) return PHOTO_MAP[base];
+  }
+  return null;
+}
 
 function normalizeItem(raw: Partial<InventoryItem> & { id: string; name: string }): InventoryItem {
   return {
@@ -21,6 +40,7 @@ function normalizeItem(raw: Partial<InventoryItem> & { id: string; name: string 
     archived: Boolean(raw.archived),
     lastCountedAt: raw.lastCountedAt ?? null,
     lastVendor: raw.lastVendor ?? raw.vendor ?? null,
+    image: resolveImage(raw),
   };
 }
 
@@ -123,7 +143,6 @@ export function saveState(state: InventoryState) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (err) {
-    // Quota exceeded — retry without thumbnails
     const stripped: InventoryState = {
       ...state,
       receipts: (state.receipts ?? []).map((r) => ({

@@ -6,6 +6,7 @@ import { useInventory } from "@/context/InventoryContext";
 import { ItemCard } from "@/components/ItemCard";
 import { SearchInput } from "@/components/SearchInput";
 import { MoveFolderModal } from "@/components/MoveFolderModal";
+import { EmptyState } from "@/components/EmptyState";
 
 export default function IdeasPage() {
   const { ideaItems, moveToFolder, archiveItem, deleteItem, updateQuantity } =
@@ -32,7 +33,7 @@ export default function IdeasPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-semibold text-ink">Ideas</h1>
+        <h1 className="font-display text-2xl font-semibold text-ink">Ideas</h1>
         <p className="mt-1 text-sm text-ink-muted">
           Wishlist ideas from Sortly — not part of your stock until you move them.
         </p>
@@ -50,7 +51,7 @@ export default function IdeasPage() {
         </Link>
       </div>
 
-      <div className="grid gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {filtered.map((item) => (
           <div key={item.id} className="space-y-2">
             <ItemCard
@@ -58,6 +59,7 @@ export default function IdeasPage() {
               onQuantity={updateQuantity}
               showMove
               onMove={setMoveId}
+              variant="grid"
             />
             <div className="flex gap-2 px-1">
               <button
@@ -82,10 +84,11 @@ export default function IdeasPage() {
           </div>
         ))}
         {filtered.length === 0 ? (
-          <div className="rounded-2xl bg-surface p-8 text-center text-ink-muted shadow-soft">
-            {ideaItems.length === 0
-              ? "No wishlist ideas left — nice."
-              : "No ideas match your search."}
+          <div className="col-span-full">
+            <EmptyState
+              title={ideaItems.length === 0 ? "No wishlist ideas left" : "No ideas match"}
+              description={ideaItems.length === 0 ? "Your ideas list is clear." : "Try a different search."}
+            />
           </div>
         ) : null}
       </div>

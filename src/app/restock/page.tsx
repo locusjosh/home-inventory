@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useInventory } from "@/context/InventoryContext";
 import { LogPurchaseSheet } from "@/components/LogPurchaseSheet";
+import { ItemImage } from "@/components/ItemImage";
+import { EmptyState } from "@/components/EmptyState";
 import type { InventoryItem } from "@/lib/types";
 import {
   formatPrice,
@@ -72,7 +74,7 @@ export default function RestockPage() {
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-ink">Restock list</h1>
+          <h1 className="font-display text-2xl font-semibold text-ink">Restock list</h1>
           <p className="text-sm text-ink-muted">
             Low-stock items with shop links & need-to-buy qty
             {lowStockItems.some((i) => i.price != null)
@@ -100,7 +102,7 @@ export default function RestockPage() {
       </div>
 
       {byVendor.map(([vendor, items]) => (
-        <section key={vendor} className="rounded-2xl bg-surface p-4 shadow-soft">
+        <section key={vendor} className="card-lux p-4">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-muted">
             {vendor}
           </h2>
@@ -109,7 +111,18 @@ export default function RestockPage() {
               const need = needToBuy(item);
               const last = getLastPurchase(item.id);
               return (
-                <li key={item.id} className="py-3 first:pt-0 last:pb-0">
+                <li key={item.id} className="flex gap-3 py-3 first:pt-0 last:pb-0">
+                  <Link
+                    href={`/items/edit/?id=${encodeURIComponent(item.id)}`}
+                    className="shrink-0 focus-ring rounded-xl"
+                  >
+                    <ItemImage
+                      item={item}
+                      aspect="aspect-square"
+                      className="h-14 w-14 rounded-xl shadow-soft"
+                    />
+                  </Link>
+                  <div className="min-w-0 flex-1">
                   <Link
                     href={`/items/edit/?id=${encodeURIComponent(item.id)}`}
                     className="block font-medium text-ink hover:text-accent"
@@ -177,10 +190,11 @@ export default function RestockPage() {
                     <button
                       type="button"
                       onClick={() => onMarkRestocked(item)}
-                      className="rounded-lg bg-accent-soft px-2.5 py-1.5 text-xs font-semibold text-accent"
+                      className="rounded-lg bg-accent-soft px-2.5 py-1.5 text-xs font-semibold text-accent pressable"
                     >
                       Mark restocked
                     </button>
+                  </div>
                   </div>
                 </li>
               );
@@ -190,15 +204,18 @@ export default function RestockPage() {
       ))}
 
       {lowStockItems.length === 0 ? (
-        <div className="rounded-2xl bg-surface p-8 text-center text-ink-muted shadow-soft">
-          <p>Restock list is empty.</p>
-          <Link
-            href="/receipt"
-            className="mt-3 inline-block rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white"
-          >
-            Scan a receipt
-          </Link>
-        </div>
+        <EmptyState
+          title="Restock list is empty"
+          description="Nothing is below min level right now."
+          action={
+            <Link
+              href="/receipt"
+              className="inline-block rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white pressable"
+            >
+              Scan a receipt
+            </Link>
+          }
+        />
       ) : null}
 
       {sheetItem ? (
