@@ -10,7 +10,7 @@ function CountModeInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const folderParam = searchParams.get("folder");
-  const { activeItems, confirmCount, folderCounts } = useInventory();
+  const { myItems, confirmCount, folderCounts } = useInventory();
 
   const foldersWithItems = useMemo(() => {
     return COUNT_FOLDERS.filter((f) => (folderCounts[f] ?? 0) > 0);
@@ -20,12 +20,7 @@ function CountModeInner() {
     if (folderParam && foldersWithItems.includes(folderParam as (typeof COUNT_FOLDERS)[number])) {
       return folderParam;
     }
-    // Prefer first non-Suggested folder with items
-    return (
-      foldersWithItems.find((f) => f !== "Suggested Items") ??
-      foldersWithItems[0] ??
-      "Bathroom"
-    );
+    return foldersWithItems[0] ?? "Bathroom";
   }, [folderParam, foldersWithItems]);
 
   const [folder, setFolder] = useState(initialFolder);
@@ -38,12 +33,12 @@ function CountModeInner() {
   }, [initialFolder]);
 
   const roomItems = useMemo(() => {
-    let list = activeItems.filter((i) => i.folder === folder);
+    let list = myItems.filter((i) => i.folder === folder);
     if (uncountedOnly) {
       list = list.filter((i) => !i.lastCountedAt);
     }
     return [...list].sort((a, b) => a.name.localeCompare(b.name));
-  }, [activeItems, folder, uncountedOnly]);
+  }, [myItems, folder, uncountedOnly]);
 
   const current = roomItems[index] ?? null;
 

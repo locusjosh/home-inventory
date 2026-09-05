@@ -6,27 +6,25 @@ import { useInventory } from "@/context/InventoryContext";
 import { FolderChips } from "@/components/FolderChips";
 import { ItemCard } from "@/components/ItemCard";
 import { SearchInput } from "@/components/SearchInput";
-import { MoveFolderModal } from "@/components/MoveFolderModal";
 import { isLowStock, needsCount } from "@/lib/utils";
 
 type SortMode = "name" | "low" | "recent";
 
 export default function HomePage() {
   const {
-    activeItems,
+    myItems,
     folderCounts,
     lowStockItems,
     needsCountItems,
     updateQuantity,
-    moveToFolder,
+    ideaItems,
   } = useInventory();
   const [folder, setFolder] = useState<string | "all" | "low" | "needs">("all");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortMode>("name");
-  const [moveId, setMoveId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
-    let list = activeItems;
+    let list = myItems;
     if (folder === "low") list = list.filter(isLowStock);
     else if (folder === "needs") list = list.filter(needsCount);
     else if (folder !== "all") list = list.filter((i) => i.folder === folder);
@@ -53,9 +51,7 @@ export default function HomePage() {
       });
     }
     return sorted;
-  }, [activeItems, folder, query, sort]);
-
-  const moving = activeItems.find((i) => i.id === moveId);
+  }, [myItems, folder, query, sort]);
 
   return (
     <div className="space-y-4">
@@ -86,11 +82,11 @@ export default function HomePage() {
           <p className="text-sm font-semibold">Start →</p>
         </Link>
         <Link
-          href="/restock"
+          href="/ideas"
           className="rounded-2xl bg-surface px-3 py-3 shadow-soft"
         >
-          <p className="text-xs text-ink-muted">Restock</p>
-          <p className="text-sm font-semibold text-ink">Shop list →</p>
+          <p className="text-xs text-ink-muted">Ideas</p>
+          <p className="text-xl font-bold tabular-nums text-ink">{ideaItems.length}</p>
         </Link>
       </section>
 
@@ -146,7 +142,7 @@ export default function HomePage() {
       <div className="flex items-baseline justify-between">
         <h1 className="text-xl font-semibold text-ink">
           {folder === "all"
-            ? "All items"
+            ? "My items"
             : folder === "low"
               ? "Low stock"
               : folder === "needs"
@@ -156,22 +152,9 @@ export default function HomePage() {
         <p className="text-sm text-ink-muted">{filtered.length} shown</p>
       </div>
 
-      {folder === "Suggested Items" ? (
-        <p className="rounded-2xl bg-accent-soft/60 px-4 py-3 text-sm text-ink">
-          Suggested Items is your wishlist. Use <strong>Move to folder…</strong> when you start
-          stocking something.
-        </p>
-      ) : null}
-
       <div className="grid gap-3">
         {filtered.map((item) => (
-          <ItemCard
-            key={item.id}
-            item={item}
-            onQuantity={updateQuantity}
-            showMove={item.folder === "Suggested Items"}
-            onMove={setMoveId}
-          />
+          <ItemCard key={item.id} item={item} onQuantity={updateQuantity} />
         ))}
         {filtered.length === 0 ? (
           <div className="rounded-2xl bg-surface p-8 text-center text-ink-muted shadow-soft">
@@ -179,16 +162,6 @@ export default function HomePage() {
           </div>
         ) : null}
       </div>
-
-      <MoveFolderModal
-        open={Boolean(moveId)}
-        itemName={moving?.name}
-        onClose={() => setMoveId(null)}
-        onPick={(f) => {
-          if (moveId) moveToFolder(moveId, f);
-          setMoveId(null);
-        }}
-      />
     </div>
   );
 }

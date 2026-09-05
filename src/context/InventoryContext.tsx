@@ -17,16 +17,22 @@ import type {
   ReceiptRecord,
 } from "@/lib/types";
 import { importState, loadState, resetToSeed, saveState } from "@/lib/storage";
-import { isLowStock, needsCount, uid } from "@/lib/utils";
+import { ideaItems as filterIdeaItems, isLowStock, myItems as filterMyItems, needsCount, uid } from "@/lib/utils";
 
 type InventoryContextValue = {
   ready: boolean;
   items: InventoryItem[];
   purchases: Purchase[];
   receipts: ReceiptRecord[];
+  /** All non-archived items (includes Suggested Items). */
   activeItems: InventoryItem[];
+  /** Non-archived stock items (excludes Suggested Items). */
+  myItems: InventoryItem[];
+  /** Non-archived Suggested Items wishlist. */
+  ideaItems: InventoryItem[];
   lowStockItems: InventoryItem[];
   needsCountItems: InventoryItem[];
+  /** Counts for stock folders only (excludes Suggested Items). */
   folderCounts: Record<string, number>;
   updateQuantity: (id: string, quantity: number) => void;
   confirmCount: (id: string, quantity: number) => void;
@@ -72,23 +78,27 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
     [items]
   );
 
+  const myItems = useMemo(() => filterMyItems(items), [items]);
+
+  const ideaItems = useMemo(() => filterIdeaItems(items), [items]);
+
   const lowStockItems = useMemo(
-    () => activeItems.filter(isLowStock).sort((a, b) => a.name.localeCompare(b.name)),
-    [activeItems]
+    () => myItems.filter(isLowStock).sort((a, b) => a.name.localeCompare(b.name)),
+    [myItems]
   );
 
   const needsCountItems = useMemo(
-    () => activeItems.filter(needsCount).sort((a, b) => a.name.localeCompare(b.name)),
-    [activeItems]
+    () => myItems.filter(needsCount).sort((a, b) => a.name.localeCompare(b.name)),
+    [myItems]
   );
 
   const folderCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const i of activeItems) {
+    for (const i of myItems) {
       counts[i.folder] = (counts[i.folder] ?? 0) + 1;
     }
     return counts;
-  }, [activeItems]);
+  }, [myItems]);
 
   const updateQuantity = useCallback(
     (id: string, quantity: number) => {
@@ -399,6 +409,8 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
     purchases,
     receipts,
     activeItems,
+    myItems,
+    ideaItems,
     lowStockItems,
     needsCountItems,
     folderCounts,

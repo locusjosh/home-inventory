@@ -1,6 +1,6 @@
 "use client";
 
-import { FOLDERS } from "@/lib/types";
+import { STOCK_FOLDERS } from "@/lib/types";
 
 type Props = {
   open: boolean;
@@ -11,7 +11,7 @@ type Props = {
 
 export function MoveFolderModal({ open, itemName, onClose, onPick }: Props) {
   if (!open) return null;
-  const realFolders = FOLDERS.filter((f) => f !== "Suggested Items");
+  const realFolders = STOCK_FOLDERS;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">

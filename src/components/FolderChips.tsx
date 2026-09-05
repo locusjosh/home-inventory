@@ -1,6 +1,6 @@
 "use client";
 
-import { FOLDERS } from "@/lib/types";
+import { STOCK_FOLDERS } from "@/lib/types";
 
 type Props = {
   selected: string | "all" | "low" | "needs";
@@ -15,7 +15,7 @@ export function FolderChips({ selected, counts, lowCount, needsCount = 0, onSele
     { key: "all", label: "All", count: Object.values(counts).reduce((a, b) => a + b, 0) },
     { key: "low", label: "Low stock", count: lowCount },
     { key: "needs", label: "Needs count", count: needsCount },
-    ...FOLDERS.map((f) => ({ key: f, label: f, count: counts[f] ?? 0 })),
+    ...STOCK_FOLDERS.map((f) => ({ key: f, label: f, count: counts[f] ?? 0 })),
   ];
 
   return (

@@ -7,6 +7,7 @@ import { ThemeToggle } from "./ThemeToggle";
 
 const nav = [
   { href: "/", label: "Stock" },
+  { href: "/ideas", label: "Ideas" },
   { href: "/count", label: "Count" },
   { href: "/low-stock", label: "Low" },
   { href: "/restock", label: "Restock" },
@@ -18,9 +19,10 @@ const nav = [
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { ready, lowStockItems, needsCountItems } = useInventory();
+  const { ready, lowStockItems, needsCountItems, ideaItems } = useInventory();
   const low = lowStockItems.length;
   const needs = needsCountItems.length;
+  const ideas = ideaItems.length;
 
   return (
     <div className="min-h-dvh bg-surface-2 text-ink">
@@ -42,8 +44,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 : pathname.startsWith(item.href);
             const showBadge =
               (item.href === "/low-stock" && low > 0) ||
-              (item.href === "/count" && needs > 0);
-            const badge = item.href === "/count" ? needs : low;
+              (item.href === "/count" && needs > 0) ||
+              (item.href === "/ideas" && ideas > 0);
+            const badge =
+              item.href === "/count" ? needs : item.href === "/ideas" ? ideas : low;
             const isAssist = item.href === "/assist";
             return (
               <Link

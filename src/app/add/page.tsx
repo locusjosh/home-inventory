@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useInventory } from "@/context/InventoryContext";
-import { FOLDERS } from "@/lib/types";
+import { STOCK_FOLDERS } from "@/lib/types";
 
 export default function AddItemPage() {
   const { addItem } = useInventory();
@@ -57,7 +57,7 @@ export default function AddItemPage() {
             onChange={(e) => setFolder(e.target.value)}
             className="w-full rounded-xl border border-surface-3 bg-surface-2 px-3 py-3 text-ink outline-none focus:border-accent"
           >
-            {FOLDERS.map((f) => (
+            {STOCK_FOLDERS.map((f) => (
               <option key={f} value={f}>
                 {f}
               </option>

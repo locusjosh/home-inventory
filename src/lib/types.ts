@@ -13,7 +13,8 @@ export type FolderName =
   | "Outside"
   | "Suggested Items";
 
-export const FOLDERS: FolderName[] = [
+/** Real stock folders (excludes Suggested Items wishlist). */
+export const STOCK_FOLDERS: FolderName[] = [
   "Bathroom",
   "Cleaning",
   "Family",
@@ -21,20 +22,14 @@ export const FOLDERS: FolderName[] = [
   "Laundry",
   "Maintenance",
   "Outside",
-  "Suggested Items",
 ];
 
-/** Folders shown first in count mode (Suggested Items last). */
-export const COUNT_FOLDERS: FolderName[] = [
-  "Bathroom",
-  "Cleaning",
-  "Family",
-  "Kitchen",
-  "Laundry",
-  "Maintenance",
-  "Outside",
-  "Suggested Items",
-];
+export const SUGGESTED_FOLDER: FolderName = "Suggested Items";
+
+export const FOLDERS: FolderName[] = [...STOCK_FOLDERS, SUGGESTED_FOLDER];
+
+/** Folders used in count mode — stock only. */
+export const COUNT_FOLDERS: FolderName[] = [...STOCK_FOLDERS];
 
 export type InventoryItem = {
   id: string;

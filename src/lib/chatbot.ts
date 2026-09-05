@@ -1,6 +1,6 @@
 import type { InventoryItem } from "./types";
-import { FOLDERS } from "./types";
-import { formatQty, isLowStock } from "./utils";
+import { STOCK_FOLDERS, SUGGESTED_FOLDER } from "./types";
+import { formatQty, isLowStock, isSuggested } from "./utils";
 
 export type ChatAction =
   | { type: "setQuantity"; itemId: string; quantity: number }
@@ -31,7 +31,10 @@ export type ChatResult = {
 };
 
 export type ChatContext = {
-  activeItems: InventoryItem[];
+  /** Stock items only (excludes Suggested Items). Default search scope. */
+  myItems: InventoryItem[];
+  /** Wishlist / Suggested Items. Included when user asks about ideas/wishlist. */
+  ideaItems: InventoryItem[];
   lowStockItems: InventoryItem[];
   needsCountItems: InventoryItem[];
   /** Candidates from last "which one?" turn */
@@ -246,10 +249,6 @@ function typoBonus(qToken: string, nameToken: string): number {
   return Math.max(0, 12 - dist * 4);
 }
 
-function isSuggested(item: InventoryItem): boolean {
-  return normalize(item.folder) === "suggested items";
-}
-
 /** Score how well query matches an item (higher = better). */
 export function scoreMatch(query: string, item: InventoryItem): number {
   const expansions = expandQuery(query);
@@ -415,14 +414,21 @@ function resolveItem(
 
 function matchFolder(text: string): string | null {
   const n = normalize(text);
-  for (const f of FOLDERS) {
+  const all = [...STOCK_FOLDERS, SUGGESTED_FOLDER];
+  for (const f of all) {
     if (normalize(f) === n) return f;
   }
-  for (const f of FOLDERS) {
+  // Also accept "ideas" / "wishlist" as Suggested Items
+  if (/^(ideas?|wishlist|suggested)$/.test(n)) return SUGGESTED_FOLDER;
+  for (const f of all) {
     const fn = normalize(f);
     if (n.includes(fn) || fn.includes(n)) return f;
   }
   return null;
+}
+
+function wantsIdeasQuery(n: string): boolean {
+  return /\b(ideas?|wishlist|suggested|want to buy|on my list|sortly)\b/.test(n);
 }
 
 function helpReply(): string {
@@ -497,20 +503,19 @@ function criticallyLowReply(items: InventoryItem[]): { reply: string; speakText:
 }
 
 function houseSummaryReply(
-  activeItems: InventoryItem[],
+  myItems: InventoryItem[],
   lowStockItems: InventoryItem[],
   needsCountItems: InventoryItem[]
 ): { reply: string; speakText: string } {
   const byFolder = new Map<string, { total: number; low: number }>();
-  for (const i of activeItems) {
-    if (isSuggested(i)) continue;
+  for (const i of myItems) {
     const cur = byFolder.get(i.folder) ?? { total: 0, low: 0 };
     cur.total++;
     if (isLowStock(i)) cur.low++;
     byFolder.set(i.folder, cur);
   }
   const lines = [
-    `House check: ${activeItems.filter((i) => !isSuggested(i)).length} active items, ${lowStockItems.length} low, ${needsCountItems.length} need counting.`,
+    `House check: ${myItems.length} active items, ${lowStockItems.length} low, ${needsCountItems.length} need counting.`,
   ];
   for (const [folder, s] of [...byFolder.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
     lines.push(`· ${folder}: ${s.total} items, ${s.low} low`);
@@ -693,8 +698,10 @@ export function handleChatMessage(raw: string, ctx: ChatContext): ChatResult {
   }
 
   const n = normalize(text);
-  const { activeItems, lowStockItems, needsCountItems, pendingCandidates, lastAssistantText } =
+  const { myItems, ideaItems, lowStockItems, needsCountItems, pendingCandidates, lastAssistantText } =
     ctx;
+
+  const searchItems = wantsIdeasQuery(n) ? [...myItems, ...ideaItems] : myItems;
 
   // Conversational follow-up against pending candidates
   if (pendingCandidates && pendingCandidates.length > 0) {
@@ -728,13 +735,35 @@ export function handleChatMessage(raw: string, ctx: ChatContext): ChatResult {
     return { reply: helpReply() };
   }
 
+  // Ideas / wishlist browse
+  if (
+    /^(what('?s| is) on (my )?(wishlist|ideas?)|show (my )?(wishlist|ideas?|suggested)|list (my )?(wishlist|ideas?|suggested)|my (wishlist|ideas?))$/i.test(
+      n
+    ) ||
+    /^(wishlist|ideas?|suggested items)$/i.test(n)
+  ) {
+    if (ideaItems.length === 0) {
+      return { reply: "No wishlist ideas right now." };
+    }
+    const lines = [`${ideaItems.length} idea${ideaItems.length === 1 ? "" : "s"} (not in stock until you move them):`];
+    for (const i of ideaItems.slice(0, 20)) {
+      lines.push(`· ${i.name}`);
+    }
+    if (ideaItems.length > 20) lines.push(`…and ${ideaItems.length - 20} more.`);
+    return {
+      reply: lines.join("\n"),
+      speakText: `${ideaItems.length} ideas on the wishlist.`,
+      candidates: ideaItems.slice(0, 5),
+    };
+  }
+
   // House summary
   if (
     /how('?s| is) the house|house (looking|status|check|summary)|inventory summary|overview|status report/.test(
       n
     )
   ) {
-    const r = houseSummaryReply(activeItems, lowStockItems, needsCountItems);
+    const r = houseSummaryReply(myItems, lowStockItems, needsCountItems);
     return {
       reply: maybeProactiveFollowUp(r.reply, text),
       speakText: r.speakText,
@@ -747,7 +776,7 @@ export function handleChatMessage(raw: string, ctx: ChatContext): ChatResult {
       n
     )
   ) {
-    const r = criticallyLowReply(activeItems);
+    const r = criticallyLowReply(myItems);
     return { reply: maybeProactiveFollowUp(r.reply, text), speakText: r.speakText };
   }
 
@@ -761,7 +790,7 @@ export function handleChatMessage(raw: string, ctx: ChatContext): ChatResult {
       const fb = matchFolder(cmp[2]);
       if (fa && fb) {
         return {
-          reply: maybeProactiveFollowUp(compareFoldersReply(fa, fb, activeItems), text),
+          reply: maybeProactiveFollowUp(compareFoldersReply(fa, fb, myItems), text),
         };
       }
     }
@@ -807,11 +836,12 @@ export function handleChatMessage(raw: string, ctx: ChatContext): ChatResult {
     if (folderRaw) {
       const folder = matchFolder(folderRaw);
       if (folder) {
-        const reply = folderStatusReply(folder, activeItems);
+        const scope = folder === SUGGESTED_FOLDER ? ideaItems : myItems;
+        const reply = folderStatusReply(folder, scope);
         return {
           reply: maybeProactiveFollowUp(reply, text),
           speakText: (() => {
-            const inFolder = activeItems.filter(
+            const inFolder = scope.filter(
               (i) => normalize(i.folder) === normalize(folder)
             );
             const low = inFolder.filter(isLowStock).length;
@@ -828,7 +858,7 @@ export function handleChatMessage(raw: string, ctx: ChatContext): ChatResult {
     const catKey = prefixed ? normalize(prefixed[1]) : n;
     const pred = CATEGORY_QUERIES[catKey];
     if (pred) {
-      const found = activeItems.filter(pred);
+      const found = searchItems.filter(pred);
       if (prefixed || found.length > 1) {
         const result = multiItemReply(catKey, found);
         return {
@@ -868,7 +898,7 @@ export function handleChatMessage(raw: string, ctx: ChatContext): ChatResult {
             action: { type: "setQuantity", itemId: picked.id, quantity: qty },
           };
         }
-        const resolved = resolveItem(nameQ, activeItems);
+        const resolved = resolveItem(nameQ, searchItems);
         if (resolved.reply && !resolved.item)
           return { reply: resolved.reply, candidates: resolved.candidates };
         if (resolved.item) {
@@ -889,7 +919,7 @@ export function handleChatMessage(raw: string, ctx: ChatContext): ChatResult {
     if (isMatch && !/^(what|how|who|where|why|do|does|is there)/i.test(isMatch[1])) {
       const qty = parseNumber(isMatch[2]);
       if (qty !== null) {
-        const resolved = resolveItem(isMatch[1], activeItems);
+        const resolved = resolveItem(isMatch[1], searchItems);
         if (resolved.reply && !resolved.item)
           return { reply: resolved.reply, candidates: resolved.candidates };
         if (resolved.item) {
@@ -915,7 +945,7 @@ export function handleChatMessage(raw: string, ctx: ChatContext): ChatResult {
         if (pendingCandidates?.length && /^(it|that|this|the one)$/i.test(nameQ.trim())) {
           target = pendingCandidates[0];
         } else {
-          const resolved = resolveItem(nameQ, activeItems);
+          const resolved = resolveItem(nameQ, searchItems);
           if (resolved.reply && !resolved.item)
             return { reply: resolved.reply, candidates: resolved.candidates };
           target = resolved.item;
@@ -955,7 +985,7 @@ export function handleChatMessage(raw: string, ctx: ChatContext): ChatResult {
       if (pendingCandidates?.length && /^(it|that|this|the one)$/i.test(nameQ.trim())) {
         target = pendingCandidates[0];
       } else {
-        const resolved = resolveItem(nameQ, activeItems);
+        const resolved = resolveItem(nameQ, searchItems);
         if (resolved.reply && !resolved.item)
           return { reply: resolved.reply, candidates: resolved.candidates };
         target = resolved.item;
@@ -1027,7 +1057,7 @@ export function handleChatMessage(raw: string, ctx: ChatContext): ChatResult {
     }
 
     if (nameQ && pricePaid !== null && Number.isFinite(pricePaid)) {
-      const resolved = resolveItem(nameQ, activeItems);
+      const resolved = resolveItem(nameQ, searchItems);
       if (resolved.reply && !resolved.item)
         return { reply: resolved.reply, candidates: resolved.candidates };
       if (resolved.item) {
@@ -1061,7 +1091,7 @@ export function handleChatMessage(raw: string, ctx: ChatContext): ChatResult {
       text.match(/^(?:bought|restock(?:ed)?)\s+(.+)$/i) ||
       text.match(/^mark\s+(.+?)\s+restocked$/i);
     if (restockMatch) {
-      const resolved = resolveItem(restockMatch[1], activeItems);
+      const resolved = resolveItem(restockMatch[1], searchItems);
       if (resolved.reply && !resolved.item)
         return { reply: resolved.reply, candidates: resolved.candidates };
       if (resolved.item) {
@@ -1081,18 +1111,18 @@ export function handleChatMessage(raw: string, ctx: ChatContext): ChatResult {
     if (findMatch) {
       const folder = matchFolder(findMatch[1]);
       if (folder && /^(list|show)\s+/i.test(text)) {
-        return { reply: folderStatusReply(folder, activeItems) };
+        return { reply: folderStatusReply(folder, searchItems) };
       }
       // Category under find
       const catKey = normalize(findMatch[1]);
       if (CATEGORY_QUERIES[catKey]) {
-        const found = activeItems.filter(CATEGORY_QUERIES[catKey]);
+        const found = searchItems.filter(CATEGORY_QUERIES[catKey]);
         if (found.length > 0) {
           const result = multiItemReply(catKey, found);
           return { ...result, reply: maybeProactiveFollowUp(result.reply, text) };
         }
       }
-      const matches = findMatches(findMatch[1], activeItems, 10);
+      const matches = findMatches(findMatch[1], searchItems, 10);
       if (matches.length === 0) {
         return { reply: `No items matching “${findMatch[1].trim()}”.` };
       }
@@ -1124,14 +1154,14 @@ export function handleChatMessage(raw: string, ctx: ChatContext): ChatResult {
       // Category under "do I have filters"
       const catKey = normalize(nameQ);
       if (CATEGORY_QUERIES[catKey]) {
-        const found = activeItems.filter(CATEGORY_QUERIES[catKey]);
+        const found = searchItems.filter(CATEGORY_QUERIES[catKey]);
         if (found.length > 1) {
           const result = multiItemReply(catKey, found);
           return { ...result, reply: maybeProactiveFollowUp(result.reply, text) };
         }
       }
 
-      const resolved = resolveItem(nameQ, activeItems);
+      const resolved = resolveItem(nameQ, searchItems);
       if (resolved.reply && !resolved.item)
         return { reply: resolved.reply, candidates: resolved.candidates };
       if (resolved.item) {
@@ -1155,14 +1185,14 @@ export function handleChatMessage(raw: string, ctx: ChatContext): ChatResult {
   // Bare item name → treat as query (or category)
   {
     if (CATEGORY_QUERIES[n]) {
-      const found = activeItems.filter(CATEGORY_QUERIES[n]);
+      const found = searchItems.filter(CATEGORY_QUERIES[n]);
       if (found.length > 1) {
         const result = multiItemReply(n, found);
         return { ...result, reply: maybeProactiveFollowUp(result.reply, text) };
       }
     }
 
-    const matches = findMatches(text, activeItems, 5);
+    const matches = findMatches(text, searchItems, 5);
     if (matches.length === 1 && matches[0].score >= 55) {
       const i = matches[0].item;
       const low = isLowStock(i);

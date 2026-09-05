@@ -7,7 +7,7 @@ import { InventoryChat } from "@/components/InventoryChat";
 import { downloadBlob, itemsToCsv } from "@/lib/utils";
 
 export default function DataPage() {
-  const { items, purchases, receipts, activeItems, importJson, reset } = useInventory();
+  const { items, purchases, receipts, myItems, ideaItems, importJson, reset } = useInventory();
   const fileRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -50,7 +50,7 @@ export default function DataPage() {
       <div>
         <h1 className="text-xl font-semibold text-ink">Data</h1>
         <p className="text-sm text-ink-muted">
-          {activeItems.length} active · {items.length} total (incl. archived)
+          {myItems.length} stock · {ideaItems.length} ideas · {items.length} total (incl. archived)
           · {purchases.length} purchase{purchases.length === 1 ? "" : "s"}. Stored in
           localStorage, seeded from seed.json on first visit.
         </p>

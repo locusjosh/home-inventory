@@ -1,14 +1,29 @@
 import type { InventoryItem } from "./types";
+import { SUGGESTED_FOLDER } from "./types";
+
+export function isSuggested(item: InventoryItem): boolean {
+  return item.folder === SUGGESTED_FOLDER;
+}
+
+/** Non-archived stock items (excludes Suggested Items wishlist). */
+export function myItems(items: InventoryItem[]): InventoryItem[] {
+  return items.filter((i) => !i.archived && !isSuggested(i));
+}
+
+/** Non-archived Suggested Items (wishlist / ideas). */
+export function ideaItems(items: InventoryItem[]): InventoryItem[] {
+  return items.filter((i) => !i.archived && isSuggested(i));
+}
 
 export function isLowStock(item: InventoryItem): boolean {
-  if (item.archived) return false;
+  if (item.archived || isSuggested(item)) return false;
   if (item.minLevel === null || item.minLevel === undefined) return false;
   return item.quantity < item.minLevel;
 }
 
-/** Needs count: has minLevel and (qty===0 or never counted). */
+/** Needs count: has minLevel and (qty===0 or never counted). Stock only. */
 export function needsCount(item: InventoryItem): boolean {
-  if (item.archived) return false;
+  if (item.archived || isSuggested(item)) return false;
   if (item.minLevel === null || item.minLevel === undefined) return false;
   if (!item.lastCountedAt) return true;
   return item.quantity === 0;

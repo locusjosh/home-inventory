@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useInventory } from "@/context/InventoryContext";
-import { FOLDERS, type ItemDraft } from "@/lib/types";
+import { STOCK_FOLDERS, type ItemDraft } from "@/lib/types";
 import { formatPrice } from "@/lib/utils";
 import {
   matchLineToInventory,
@@ -36,7 +36,7 @@ type Phase = "capture" | "reading" | "review" | "done" | "error";
 
 export default function ReceiptPage() {
   const router = useRouter();
-  const { activeItems, confirmReceiptAllocation } = useInventory();
+  const { myItems, confirmReceiptAllocation } = useInventory();
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -83,7 +83,7 @@ export default function ReceiptPage() {
         .filter((l) => l.kind === "item" || (l.kind === "discount" && l.price !== 0))
         .filter((l) => l.kind === "item")
         .map((l, idx) => {
-          const match = matchLineToInventory(l.description, activeItems);
+          const match = matchLineToInventory(l.description, myItems);
           const action: AllocAction = match.itemId ? "match" : "skip";
           return {
             key: `line-${idx}-${l.description.slice(0, 12)}`,
@@ -101,7 +101,7 @@ export default function ReceiptPage() {
           };
         });
     },
-    [activeItems]
+    [myItems]
   );
 
   const runOcr = async () => {
@@ -443,7 +443,7 @@ export default function ReceiptPage() {
                       value={line.description}
                       onChange={(e) => {
                         const description = e.target.value;
-                        const match = matchLineToInventory(description, activeItems);
+                        const match = matchLineToInventory(description, myItems);
                         updateLine(line.key, {
                           description,
                           match,
@@ -561,7 +561,7 @@ export default function ReceiptPage() {
                                 {c.name} ({c.score})
                               </option>
                             ))
-                          : activeItems
+                          : myItems
                               .slice()
                               .sort((a, b) => a.name.localeCompare(b.name))
                               .map((i) => (
@@ -572,7 +572,7 @@ export default function ReceiptPage() {
                         {/* Always include full list as optgroup for override */}
                         {line.match.candidates.length > 0 ? (
                           <optgroup label="All items">
-                            {activeItems
+                            {myItems
                               .slice()
                               .sort((a, b) => a.name.localeCompare(b.name))
                               .map((i) => (
@@ -596,7 +596,7 @@ export default function ReceiptPage() {
                         }
                         className="w-full rounded-xl border border-surface-3 bg-surface-2 px-3 py-2.5 text-sm text-ink outline-none focus:border-accent"
                       >
-                        {FOLDERS.map((f) => (
+                        {STOCK_FOLDERS.map((f) => (
                           <option key={f} value={f}>
                             {f}
                           </option>

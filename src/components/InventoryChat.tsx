@@ -67,7 +67,8 @@ function formatTime(ts?: number): string {
 
 export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
   const {
-    activeItems,
+    myItems,
+    ideaItems,
     lowStockItems,
     needsCountItems,
     updateQuantity,
@@ -173,7 +174,7 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
       if (a.type === "setQuantity") {
         updateQuantity(a.itemId, a.quantity);
       } else if (a.type === "adjustQuantity") {
-        const item = activeItems.find((i) => i.id === a.itemId);
+        const item = myItems.find((i) => i.id === a.itemId) ?? ideaItems.find((i) => i.id === a.itemId);
         if (!item) return;
         updateQuantity(a.itemId, Math.max(0, item.quantity + a.delta));
       } else if (a.type === "markRestocked") {
@@ -193,7 +194,7 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
         });
       }
     },
-    [activeItems, logPurchase, markRestocked, updateQuantity]
+    [myItems, ideaItems, logPurchase, markRestocked, updateQuantity]
   );
 
   const speakReply = useCallback(
@@ -236,7 +237,8 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
       };
 
       const result = handleChatMessage(text, {
-        activeItems,
+        myItems,
+        ideaItems,
         lowStockItems,
         needsCountItems,
         pendingCandidates: pendingCandidatesRef.current,
@@ -246,7 +248,7 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
 
       let replyText = result.reply;
       if (result.action?.type === "markRestocked") {
-        const item = activeItems.find((i) => i.id === result.action!.itemId);
+        const item = myItems.find((i) => i.id === result.action!.itemId) ?? ideaItems.find((i) => i.id === result.action!.itemId);
         if (item) {
           const min = item.minLevel ?? 0;
           const nextQty =
@@ -292,7 +294,8 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
       requestAnimationFrame(() => inputRef.current?.focus());
     },
     [
-      activeItems,
+      myItems,
+      ideaItems,
       applyAction,
       lowStockItems,
       needsCountItems,
