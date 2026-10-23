@@ -71,6 +71,11 @@ export type ActionItem = {
   href?: string;
   external?: boolean;
   checked?: boolean;
+  /**
+   * Render as a <label for=…> targeting a (visually hidden) file input, so the
+   * native picker opens from the user's own tap — iOS keeps the gesture chain.
+   */
+  htmlFor?: string;
 };
 
 /** iOS action sheet: grouped actions + separate Cancel. */
@@ -127,6 +132,23 @@ export function ActionSheet({
                 >
                   {a.label}
                 </a>
+              );
+            }
+            if (a.htmlFor) {
+              return (
+                <label
+                  key={a.label}
+                  htmlFor={a.htmlFor}
+                  role="button"
+                  className={`${cls} cursor-pointer`}
+                  onClick={() => {
+                    a.onSelect();
+                    // Close after the label's native activation has opened the picker.
+                    setTimeout(onClose, 0);
+                  }}
+                >
+                  {a.label}
+                </label>
               );
             }
             return (

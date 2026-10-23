@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useInventory } from "@/context/InventoryContext";
 import { STOCK_FOLDERS, type ItemDraft } from "@/lib/types";
 import { formatPrice } from "@/lib/utils";
 import { Page } from "@/components/ui/Page";
-import { Button } from "@/components/ui/Button";
+import { Button, buttonClass } from "@/components/ui/Button";
+import { PhotoInputs, usePhotoInputIds } from "@/components/PhotoInputs";
+import { ImageDecodeError, isHeic, isImageFile, sniffHeic, toJpeg } from "@/lib/imageFile";
 import { Icon } from "@/components/ui/Icon";
 import { ListSection } from "@/components/ui/List";
 import { FieldRow, SelectInput, TextInput } from "@/components/ui/Form";
@@ -41,11 +43,21 @@ type ReviewLine = {
 
 type Phase = "capture" | "reading" | "review" | "done" | "error";
 
+function ocrErrorMessage(err: unknown): string {
+  if (err instanceof ImageDecodeError) return err.message;
+  const msg = err instanceof Error ? err.message : String(err ?? "");
+  if (/decode|image|bitmap|read image/i.test(msg))
+    return "This photo couldn’t be opened. Try another photo, or retake it.";
+  if (typeof navigator !== "undefined" && navigator.onLine === false && /fetch|network|load/i.test(msg))
+    return "The text reader hasn’t finished downloading. Open the app once while online, then try again.";
+  return "Couldn’t read this receipt. Try again with the receipt flat, in bright light, filling the frame.";
+}
+
 export default function ReceiptPage() {
   const router = useRouter();
   const { myItems, confirmReceiptAllocation } = useInventory();
-  const cameraRef = useRef<HTMLInputElement>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const { cameraId, libraryId } = usePhotoInputIds("receipt");
+  const [preparing, setPreparing] = useState(false);
 
   const [phase, setPhase] = useState<Phase>("capture");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -70,15 +82,31 @@ export default function ReceiptPage() {
     };
   }, [previewUrl]);
 
-  const onPick = (f: File | null) => {
-    if (!f || !f.type.startsWith("image/")) {
-      setError("Please choose an image file (photo of your receipt).");
+  const onPick = async (picked: File | null) => {
+    if (!isImageFile(picked)) {
+      setError("Please choose a photo of your receipt (JPEG, PNG or HEIC).");
       return;
     }
     setError(null);
     setPhase("capture");
     setParsed(null);
     setLines([]);
+    let f: File = picked;
+    // HEIC (iPhone default) can't go to OCR / canvas directly in most browsers:
+    // convert to JPEG first. Large enough to keep small receipt text legible.
+    if (isHeic(picked) || !picked.type || (await sniffHeic(picked))) {
+      setPreparing(true);
+      try {
+        const { blob } = await toJpeg(picked, { maxEdge: 2400, quality: 0.9 });
+        f = new File([blob], picked.name.replace(/\.[^.]+$/, "") + ".jpg", { type: "image/jpeg" });
+      } catch (err) {
+        console.error(err);
+        setError(err instanceof ImageDecodeError ? err.message : "This photo couldn’t be opened. Try another one.");
+        setPreparing(false);
+        return;
+      }
+      setPreparing(false);
+    }
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(URL.createObjectURL(f));
     setFile(f);
@@ -155,11 +183,7 @@ export default function ReceiptPage() {
     } catch (err) {
       console.error(err);
       setPhase("error");
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Couldn’t read the receipt. Check your connection and try again."
-      );
+      setError(ocrErrorMessage(err));
     }
   };
 
@@ -292,27 +316,7 @@ export default function ReceiptPage() {
       back={{ href: "/more", label: "More", useHistory: true }}
       subtitle={phase === "review" ? "Check each line, then confirm." : undefined}
     >
-      <input
-        ref={cameraRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={(e) => {
-          onPick(e.target.files?.[0] ?? null);
-          e.target.value = "";
-        }}
-      />
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => {
-          onPick(e.target.files?.[0] ?? null);
-          e.target.value = "";
-        }}
-      />
+      <PhotoInputs cameraId={cameraId} libraryId={libraryId} onFile={(f) => void onPick(f)} disabled={preparing} />
 
       {phase === "capture" || phase === "error" ? (
         <section className="space-y-4">
@@ -340,24 +344,28 @@ export default function ReceiptPage() {
             </p>
           ) : null}
 
-          {file ? (
+          {preparing ? (
+            <p className="rounded-card bg-bg-grouped-2 px-4 py-3 text-center text-subhead text-label-2" aria-live="polite">
+              Preparing photo…
+            </p>
+          ) : file ? (
             <div className="space-y-2">
               <Button variant="primary" size="lg" block onClick={() => void runOcr()}>
                 Read Receipt
               </Button>
-              <Button variant="plain" block onClick={() => cameraRef.current?.click()}>
+              <label htmlFor={cameraId} role="button" className={buttonClass({ variant: "plain", block: true, className: "cursor-pointer" })}>
                 Retake Photo
-              </Button>
+              </label>
             </div>
           ) : (
             <div className="space-y-2">
-              <Button variant="primary" size="lg" block onClick={() => cameraRef.current?.click()}>
+              <label htmlFor={cameraId} role="button" className={buttonClass({ variant: "primary", size: "lg", block: true, className: "cursor-pointer" })}>
                 <Icon name="camera" size={20} strokeWidth={2} />
                 Take Photo
-              </Button>
-              <Button variant="plain" block onClick={() => fileRef.current?.click()}>
+              </label>
+              <label htmlFor={libraryId} role="button" className={buttonClass({ variant: "plain", block: true, className: "cursor-pointer" })}>
                 Choose from Library
-              </Button>
+              </label>
             </div>
           )}
 

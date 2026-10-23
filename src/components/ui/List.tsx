@@ -72,6 +72,8 @@ type RowProps = {
   /** Leading inset for separator alignment */
   multiline?: boolean;
   ariaLabel?: string;
+  /** Render as <label for=…> to open a (visually hidden) file input from the tap itself. */
+  htmlFor?: string;
 };
 
 /** Single list row. Hairline separator is inset to the text column. */
@@ -88,8 +90,9 @@ export function ListRow({
   tint,
   className = "",
   ariaLabel,
+  htmlFor,
 }: RowProps) {
-  const interactive = Boolean(href || onClick);
+  const interactive = Boolean(href || onClick || htmlFor);
   const titleColor = destructive ? "text-sys-red-text" : tint ? "text-tint" : "text-label";
   const body = (
     <>
@@ -125,6 +128,13 @@ export function ListRow({
       <Link href={href} className={cls} aria-label={ariaLabel}>
         {body}
       </Link>
+    );
+  }
+  if (htmlFor) {
+    return (
+      <label htmlFor={htmlFor} role="button" className={`${cls} cursor-pointer`} aria-label={ariaLabel}>
+        {body}
+      </label>
     );
   }
   if (onClick) {

@@ -17,6 +17,7 @@ import type {
   ReceiptRecord,
 } from "@/lib/types";
 import { importState, loadState, resetToSeed, saveState } from "@/lib/storage";
+import { clearPhotos, deletePhoto, importPhotos } from "@/lib/photoStore";
 import { ideaItems as filterIdeaItems, isLowStock, myItems as filterMyItems, needsCount, uid } from "@/lib/utils";
 
 type InventoryContextValue = {
@@ -51,7 +52,7 @@ type InventoryContextValue = {
   deleteItem: (id: string) => void;
   moveToFolder: (id: string, folder: string) => void;
   reset: () => void;
-  importJson: (data: unknown) => void;
+  importJson: (data: unknown) => Promise<number>;
   replaceAll: (items: InventoryItem[]) => void;
 };
 
@@ -368,6 +369,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
         items: state.items.filter((i) => i.id !== id),
         purchases: (state.purchases ?? []).filter((p) => p.itemId !== id),
       });
+      void deletePhoto(id);
     },
     [persist, state]
   );
@@ -381,11 +383,19 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
 
   const reset = useCallback(() => {
     persist(resetToSeed());
+    void clearPhotos();
   }, [persist]);
 
+  /** Restores items/purchases/receipts and the embedded user photos. Resolves to the photo count. */
   const importJson = useCallback(
-    (data: unknown) => {
-      persist(importState(data));
+    async (data: unknown) => {
+      const next = importState(data);
+      persist(next);
+      const photos =
+        data && typeof data === "object" && !Array.isArray(data)
+          ? ((data as { photos?: Record<string, string> }).photos ?? null)
+          : null;
+      return importPhotos(photos, new Set(next.items.map((i) => i.id)));
     },
     [persist]
   );

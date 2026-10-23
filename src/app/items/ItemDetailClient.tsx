@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useInventory } from "@/context/InventoryContext";
 import { FOLDERS, type Attribute } from "@/lib/types";
 import { LogPurchaseSheet } from "@/components/LogPurchaseSheet";
-import { ItemImage } from "@/components/ItemImage";
+import { ItemPhotoEditor } from "@/components/ItemPhotoEditor";
 import { EmptyState } from "@/components/EmptyState";
 import { Page } from "@/components/ui/Page";
 import { ListRow, ListSection } from "@/components/ui/List";
@@ -78,7 +78,7 @@ export default function ItemDetailPage() {
     >
       <div className="space-y-6 pt-2">
         <div className="overflow-hidden rounded-card bg-bg-grouped-2 p-3">
-          <ItemImage item={item} aspect="aspect-[4/3]" symbolSize={72} />
+          <ItemPhotoEditor item={item} />
           <div className="px-1 pb-1 pt-3">
             <h1 className="text-title1 text-label">{item.name}</h1>
             <div className="mt-1.5 flex flex-wrap items-center gap-3">

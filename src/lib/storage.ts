@@ -4,7 +4,26 @@ import photoMap from "../../data/photo-map.json";
 import photoOverrides from "../../data/photo-overrides.json";
 
 const STORAGE_KEY = "home-inventory-v1";
-const CURRENT_VERSION = 6;
+const CURRENT_VERSION = 7;
+export const STATE_VERSION = CURRENT_VERSION;
+
+/**
+ * Seed-category corrections. Applied to saved/imported data from before
+ * `since`, and only when the item still has the original seed folder — a
+ * folder the user picked is never overwritten.
+ */
+const FOLDER_FIXES: Array<{ id: string; from: string; to: string; since: number }> = [
+  { id: "SBO59T3232", from: "Laundry", to: "Bathroom", since: 7 }, // Bandages
+];
+
+function migrateItems(items: InventoryItem[], fromVersion: number): InventoryItem[] {
+  const fixes = FOLDER_FIXES.filter((f) => fromVersion < f.since);
+  if (!fixes.length) return items;
+  return items.map((it) => {
+    const fix = fixes.find((f) => f.id === it.id && it.folder === f.from);
+    return fix ? { ...it, folder: fix.to } : it;
+  });
+}
 
 const PHOTO_MAP = photoMap as Record<string, string>;
 /** Verified replacements keyed by item id (fixes wrong packshots in saved data). */
@@ -131,7 +150,7 @@ export function loadState(): InventoryState {
     const state: InventoryState = {
       version: CURRENT_VERSION,
       seededAt: parsed.seededAt,
-      items: parsed.items.map((i) => normalizeItem(i)),
+      items: migrateItems(parsed.items.map((i) => normalizeItem(i)), parsed.version ?? 1),
       purchases,
       receipts,
     };
@@ -181,10 +200,10 @@ export function importState(data: unknown): InventoryState {
   let purchases: Purchase[] = [];
   let receipts: ReceiptRecord[] = [];
   if (Array.isArray(data)) {
-    items = data.map((i) => normalizeItem(i as InventoryItem));
+    items = migrateItems(data.map((i) => normalizeItem(i as InventoryItem)), 1);
   } else if (data && typeof data === "object" && Array.isArray((data as InventoryState).items)) {
-    const d = data as InventoryState;
-    items = d.items.map((i) => normalizeItem(i));
+    const d = data as InventoryState & { stateVersion?: number };
+    items = migrateItems(d.items.map((i) => normalizeItem(i)), typeof d.stateVersion === "number" ? d.stateVersion : 1);
     if (Array.isArray(d.purchases)) {
       purchases = d.purchases
         .map((p) => normalizePurchase(p as Purchase))

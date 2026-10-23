@@ -4,9 +4,10 @@ import { useState } from "react";
 import type { InventoryItem } from "@/lib/types";
 import { HUES, assetPath, itemSymbol } from "@/lib/assets";
 import { Icon } from "./ui/Icon";
+import { useUserPhoto } from "@/lib/photoStore";
 
 type Props = {
-  item: Pick<InventoryItem, "name" | "folder" | "image">;
+  item: Pick<InventoryItem, "name" | "folder" | "image"> & { id?: string };
   className?: string;
   /** Tailwind aspect class; defaults to square */
   aspect?: string;
@@ -29,8 +30,23 @@ export function ItemImage({
   rounded = "rounded-[12px]",
 }: Props) {
   const [failed, setFailed] = useState(false);
+  const user = useUserPhoto(item.id);
   const src = item.image ? assetPath(item.image) : "";
   const showImg = Boolean(src) && !failed;
+
+  // The user's own photo (IndexedDB) always wins over the bundled packshot.
+  if (user.url) {
+    return (
+      <div className={`relative overflow-hidden bg-fill-3 ${aspect} ${rounded} ${className}`}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={user.url} alt={item.name} decoding="async" className="h-full w-full object-cover" data-user-photo="" />
+      </div>
+    );
+  }
+  // Don't flash the packshot while we check for a user photo.
+  if (!user.ready) {
+    return <div className={`relative overflow-hidden bg-fill-4 ${aspect} ${rounded} ${className}`} role="img" aria-label={item.name} />;
+  }
 
   if (showImg) {
     return (

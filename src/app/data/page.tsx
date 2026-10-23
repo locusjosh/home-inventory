@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useInventory } from "@/context/InventoryContext";
 import { downloadBlob, itemsToCsv } from "@/lib/utils";
+import { exportPhotos } from "@/lib/photoStore";
+import { STATE_VERSION } from "@/lib/storage";
 import { Page } from "@/components/ui/Page";
 import { IconTile, ListRow, ListSection } from "@/components/ui/List";
 import { SegmentedControl } from "@/components/ui/Controls";
@@ -14,7 +16,6 @@ const THEME_KEY = "home-inventory-theme";
 
 export default function DataPage() {
   const { items, purchases, receipts, myItems, ideaItems, importJson, reset } = useInventory();
-  const fileRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
   const [appearance, setAppearance] = useState<Appearance>("auto");
@@ -45,8 +46,15 @@ export default function DataPage() {
 
   const stamp = () => new Date().toISOString().slice(0, 10);
 
-  const exportJson = () => {
-    const payload = { version: 3, exportedAt: new Date().toISOString(), items, purchases, receipts };
+  const exportJson = async () => {
+    let photos: Record<string, string> = {};
+    try {
+      photos = await exportPhotos();
+    } catch (err) {
+      console.error(err);
+    }
+    // stateVersion lets imports know which data migrations still apply.
+    const payload = { version: 4, stateVersion: STATE_VERSION, exportedAt: new Date().toISOString(), items, purchases, receipts, photos };
     downloadBlob(
       `home-inventory-${stamp()}.json`,
       new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" })
@@ -62,8 +70,8 @@ export default function DataPage() {
   const onImport = async (file: File) => {
     try {
       const data = JSON.parse(await file.text());
-      importJson(data);
-      setMessage(`Restored from ${file.name}`);
+      const n = await importJson(data);
+      setMessage(n ? `Restored ${n} photo${n === 1 ? "" : "s"} and items` : `Restored from ${file.name}`);
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Import failed");
     }
@@ -128,10 +136,10 @@ export default function DataPage() {
 
         <ListSection header="Backup" footer="Restoring replaces everything on this iPhone with the file’s contents.">
           <ListRow
-            onClick={exportJson}
+            onClick={() => void exportJson()}
             leading={<IconTile color="#0071e3"><Icon name="square.and.arrow.up" size={18} strokeWidth={2} /></IconTile>}
             title="Export Backup"
-            subtitle="JSON · items, purchases, receipts"
+            subtitle="JSON · items, photos, purchases, receipts"
           />
           <ListRow
             onClick={exportCsv}
@@ -140,16 +148,18 @@ export default function DataPage() {
             subtitle="CSV · items only"
           />
           <ListRow
-            onClick={() => fileRef.current?.click()}
+            htmlFor="restore-backup-input"
             leading={<IconTile color="#636366"><Icon name="square.and.arrow.down" size={18} strokeWidth={2} /></IconTile>}
             title="Restore from Backup…"
           />
         </ListSection>
         <input
-          ref={fileRef}
+          id="restore-backup-input"
           type="file"
           accept="application/json,.json"
-          className="hidden"
+          className="visually-hidden-input"
+          tabIndex={-1}
+          aria-hidden
           onChange={(e) => {
             const f = e.target.files?.[0];
             if (f) void onImport(f);
@@ -167,7 +177,7 @@ export default function DataPage() {
           />
         </ListSection>
 
-        <ListSection footer="Puts back the original starter list and removes your changes, counts and purchase history.">
+        <ListSection footer="Puts back the original starter list and removes your changes, photos, counts and purchase history.">
           <ListRow onClick={() => setConfirmReset(true)} title="Reset to Original Data" destructive />
         </ListSection>
       </div>
@@ -176,7 +186,7 @@ export default function DataPage() {
         open={confirmReset}
         onClose={() => setConfirmReset(false)}
         title="Reset all inventory data?"
-        message="Counts, purchases and edits on this iPhone will be replaced. Export a backup first if you want to keep them."
+        message="Counts, photos, purchases and edits on this iPhone will be replaced. Export a backup first if you want to keep them."
         actions={[
           {
             label: "Reset Inventory",
