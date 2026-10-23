@@ -1,0 +1,38 @@
+# Free Supabase projects pause after a week without activity. This pings the
+# database once a week with a tiny read-only REST call so sync keeps working.
+#
+# Needs two repository secrets (Settings → Secrets and variables → Actions):
+#   SUPABASE_URL       e.g. https://abcdefghijklmnop.supabase.co
+#   SUPABASE_ANON_KEY  the project's public anon key (never the service-role key)
+# Until both exist the job just prints a notice and succeeds.
+name: Supabase keep-alive
+
+on:
+  schedule:
+    - cron: "23 15 * * 1" # Mondays 15:23 UTC
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping Supabase REST
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::notice::SUPABASE_URL / SUPABASE_ANON_KEY secrets not set yet — skipping."
+            exit 0
+          fi
+          status=$(curl -sS -o /tmp/body -w '%{http_code}' --retry 3 --retry-delay 10 --max-time 30 \
+            "${SUPABASE_URL%/}/rest/v1/rpc/keepalive" \
+            -H "apikey: ${SUPABASE_ANON_KEY}")
+          echo "HTTP $status: $(head -c 200 /tmp/body)"
+          if [ "$status" -ge 400 ]; then
+            echo "::error::Supabase keep-alive failed (HTTP $status). If the project is paused, restore it in the dashboard."
+            exit 1
+          fi
