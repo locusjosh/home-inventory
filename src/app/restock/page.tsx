@@ -1,5 +1,7 @@
 "use client";
 
+import { productHost } from "@/lib/productUrl";
+
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useInventory } from "@/context/InventoryContext";
@@ -239,9 +241,14 @@ export default function RestockPage() {
                     setPayPromptItem(menuItem);
                   },
                 },
-                { label: "Shop on Amazon", href: shopAmazonUrl(menuItem), external: true, onSelect: () => {} },
-                { label: "Shop at Costco", href: shopCostcoUrl(menuItem.name), external: true, onSelect: () => {} },
-                { label: "Shop at Walmart", href: shopWalmartUrl(menuItem.name), external: true, onSelect: () => {} },
+                // Josh's own product link beats generic store searches.
+                ...(menuItem.productUrl
+                  ? [{ label: `Open Product · ${productHost(menuItem.productUrl)}`, href: menuItem.productUrl, external: true, onSelect: () => {} }]
+                  : [
+                      { label: "Shop on Amazon", href: shopAmazonUrl(menuItem), external: true, onSelect: () => {} },
+                      { label: "Shop at Costco", href: shopCostcoUrl(menuItem.name), external: true, onSelect: () => {} },
+                      { label: "Shop at Walmart", href: shopWalmartUrl(menuItem.name), external: true, onSelect: () => {} },
+                    ]),
               ]
             : []
         }

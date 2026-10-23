@@ -95,6 +95,7 @@ export function itemsToCsv(items: InventoryItem[]): string {
     "archived",
     "lastCountedAt",
     "attributes",
+    "productUrl",
   ];
   const escape = (v: unknown) => {
     const s = v === null || v === undefined ? "" : String(v);
@@ -116,6 +117,7 @@ export function itemsToCsv(items: InventoryItem[]): string {
       i.archived ? "true" : "false",
       i.lastCountedAt ?? "",
       JSON.stringify(i.attributes ?? []),
+      i.productUrl ?? "",
     ]
       .map(escape)
       .join(",")

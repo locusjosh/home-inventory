@@ -2,6 +2,8 @@ import type { InventoryItem, InventoryState, Purchase, ReceiptRecord } from "./t
 import seed from "../../data/seed.json";
 import photoMap from "../../data/photo-map.json";
 import photoOverrides from "../../data/photo-overrides.json";
+import { sanitizeProductUrl } from "./productUrl";
+import { sanitizePhotoOrder } from "./photoOrder";
 
 const STORAGE_KEY = "home-inventory-v1";
 const CURRENT_VERSION = 7;
@@ -68,6 +70,8 @@ function normalizeItem(raw: Partial<InventoryItem> & { id: string; name: string 
     lastCountedAt: raw.lastCountedAt ?? null,
     lastVendor: raw.lastVendor ?? raw.vendor ?? null,
     image: resolveImage(raw),
+    productUrl: sanitizeProductUrl(raw.productUrl),
+    ...(Array.isArray(raw.photoOrder) ? { photoOrder: sanitizePhotoOrder(raw.id, raw.photoOrder) } : {}),
   };
 }
 

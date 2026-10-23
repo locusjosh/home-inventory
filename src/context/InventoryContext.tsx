@@ -17,7 +17,7 @@ import type {
   ReceiptRecord,
 } from "@/lib/types";
 import { importState, loadState, resetToSeed, saveState } from "@/lib/storage";
-import { clearPhotos, deletePhoto, importPhotos } from "@/lib/photoStore";
+import { clearPhotos, deletePhotosForItem, importPhotos } from "@/lib/photoStore";
 import { ideaItems as filterIdeaItems, isLowStock, myItems as filterMyItems, needsCount, uid } from "@/lib/utils";
 
 type InventoryContextValue = {
@@ -321,7 +321,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
   const addItem = useCallback(
     (draft: ItemDraft) => {
       const item: InventoryItem = {
-        id: uid("local"),
+        id: draft.id ?? uid("local"),
         sortlyId: null,
         name: draft.name.trim(),
         folder: draft.folder,
@@ -336,6 +336,8 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
         archived: false,
         lastCountedAt: null,
         lastVendor: draft.vendor,
+        productUrl: draft.productUrl ?? null,
+        ...(draft.photoOrder ? { photoOrder: draft.photoOrder } : {}),
       };
       if (!state) {
         const next = {
@@ -369,7 +371,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
         items: state.items.filter((i) => i.id !== id),
         purchases: (state.purchases ?? []).filter((p) => p.itemId !== id),
       });
-      void deletePhoto(id);
+      void deletePhotosForItem(id);
     },
     [persist, state]
   );

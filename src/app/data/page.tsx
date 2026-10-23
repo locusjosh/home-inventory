@@ -54,7 +54,7 @@ export default function DataPage() {
       console.error(err);
     }
     // stateVersion lets imports know which data migrations still apply.
-    const payload = { version: 4, stateVersion: STATE_VERSION, exportedAt: new Date().toISOString(), items, purchases, receipts, photos };
+    const payload = { version: 5, stateVersion: STATE_VERSION, exportedAt: new Date().toISOString(), items, purchases, receipts, photos };
     downloadBlob(
       `home-inventory-${stamp()}.json`,
       new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" })

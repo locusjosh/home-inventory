@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import type { InventoryItem } from "@/lib/types";
-import { ItemImage } from "./ItemImage";
-import { PhotoInputs, usePhotoInputIds } from "./PhotoInputs";
-import { ActionSheet } from "./ui/Sheet";
-import { Icon } from "./ui/Icon";
-import { deletePhoto, savePhoto, useUserPhoto } from "@/lib/photoStore";
+import { useInventory } from "@/context/InventoryContext";
+import { PhotoGallery } from "./PhotoGallery";
+import { deletePhoto, savePhoto } from "@/lib/photoStore";
+import { BUNDLED, MAX_PHOTOS, moveSlot, newPhotoKey } from "@/lib/photoOrder";
+import { useItemSlots } from "@/lib/useItemSlots";
 import { ImageDecodeError, isImageFile, toJpeg } from "@/lib/imageFile";
 
 export const PHOTO_MAX_EDGE = 1200;
@@ -24,20 +24,27 @@ export function photoErrorMessage(err: unknown) {
   return "The photo couldn’t be saved. Try again.";
 }
 
-/** Item photo with tap-to-change: Take Photo / Choose from Library / Remove Photo. */
+/** Item detail gallery: up to 4 photos (bundled packshot counts as one), persisted on the item. */
 export function ItemPhotoEditor({ item }: { item: InventoryItem }) {
-  const { cameraId, libraryId } = usePhotoInputIds("item-photo");
-  const user = useUserPhoto(item.id);
-  const [open, setOpen] = useState(false);
+  const { updateItem } = useInventory();
+  const { slots, order } = useItemSlots(item);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const onFile = async (file: File) => {
+  const setOrder = (next: string[]) => updateItem(item.id, { photoOrder: next });
+
+  const onAddFile = async (file: File) => {
     setError(null);
+    if (order.length >= MAX_PHOTOS) {
+      setError(`An item can have up to ${MAX_PHOTOS} photos. Delete one to add another.`);
+      return;
+    }
     setBusy(true);
     try {
       const { blob, width, height } = await prepareItemPhoto(file);
-      await savePhoto(item.id, blob, { width, height });
+      const key = newPhotoKey(item.id);
+      await savePhoto(key, blob, { width, height });
+      setOrder([...order, key]);
     } catch (err) {
       console.error(err);
       setError(photoErrorMessage(err));
@@ -46,51 +53,31 @@ export function ItemPhotoEditor({ item }: { item: InventoryItem }) {
     }
   };
 
-  const hasUser = Boolean(user.url);
+  const onDelete = async (i: number) => {
+    const key = order[i];
+    if (!key) return;
+    if (key !== BUNDLED) await deletePhoto(key);
+    setOrder(order.filter((k) => k !== key));
+  };
+
+  const canRestoreBundled = Boolean(item.image) && !order.includes(BUNDLED) && order.length < MAX_PHOTOS;
+
   return (
-    <div>
-      <PhotoInputs cameraId={cameraId} libraryId={libraryId} onFile={(f) => void onFile(f)} disabled={busy} />
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          disabled={busy}
-          aria-label={hasUser ? `Change photo of ${item.name}` : `Add a photo of ${item.name}`}
-          className="pressable focus-ring relative block w-full rounded-[12px]"
-        >
-          <ItemImage item={item} aspect="aspect-[4/3]" symbolSize={72} />
-          <span
-            aria-hidden
-            className="absolute bottom-2 right-2 inline-flex min-h-tap items-center gap-1.5 rounded-full bg-bg-grouped-2 px-4 text-subhead font-semibold text-tint shadow-[0_1px_6px_rgba(0,0,0,0.18)]"
-          >
-            <Icon name="camera" size={18} strokeWidth={2} />
-            {hasUser ? "Edit" : "Add Photo"}
-          </span>
-        </button>
-        {busy ? (
-          <div className="absolute inset-0 flex items-center justify-center rounded-[12px] bg-black/30" aria-live="polite">
-            <span className="rounded-full bg-bg-grouped-2 px-4 py-2 text-subhead font-semibold text-label">Preparing photo…</span>
-          </div>
-        ) : null}
-      </div>
-      {error ? (
-        <p role="alert" className="mt-2 flex items-start gap-2 px-1 text-subhead text-sys-red-text">
-          <Icon name="exclamationmark.triangle" size={18} />
-          <span>{error}</span>
-        </p>
-      ) : null}
-      <ActionSheet
-        open={open}
-        onClose={() => setOpen(false)}
-        title={hasUser ? "Item Photo" : "Add a Photo"}
-        actions={[
-          { label: "Take Photo", htmlFor: cameraId, onSelect: () => {} },
-          { label: "Choose from Library", htmlFor: libraryId, onSelect: () => {} },
-          ...(hasUser
-            ? [{ label: "Remove Photo", destructive: true, onSelect: () => void deletePhoto(item.id) }]
-            : []),
-        ]}
-      />
-    </div>
+    <PhotoGallery
+      idPrefix="item-photo"
+      name={item.name}
+      slots={slots}
+      busy={busy}
+      error={error}
+      onAddFile={(f) => void onAddFile(f)}
+      onMove={(from, to) => setOrder(moveSlot(order, from, to))}
+      onMakeCover={(i) => setOrder(moveSlot(order, i, 0))}
+      onDelete={(i) => void onDelete(i)}
+      extraAddActions={
+        canRestoreBundled
+          ? [{ label: "Restore Product Photo", onSelect: () => setOrder([...order, BUNDLED]) }]
+          : []
+      }
+    />
   );
 }

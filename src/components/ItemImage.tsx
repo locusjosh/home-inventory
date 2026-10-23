@@ -4,10 +4,10 @@ import { useState } from "react";
 import type { InventoryItem } from "@/lib/types";
 import { HUES, assetPath, itemSymbol } from "@/lib/assets";
 import { Icon } from "./ui/Icon";
-import { useUserPhoto } from "@/lib/photoStore";
+import { useItemSlots } from "@/lib/useItemSlots";
 
 type Props = {
-  item: Pick<InventoryItem, "name" | "folder" | "image"> & { id?: string };
+  item: Pick<InventoryItem, "name" | "folder" | "image"> & { id?: string; photoOrder?: string[] };
   className?: string;
   /** Tailwind aspect class; defaults to square */
   aspect?: string;
@@ -30,24 +30,26 @@ export function ItemImage({
   rounded = "rounded-[12px]",
 }: Props) {
   const [failed, setFailed] = useState(false);
-  const user = useUserPhoto(item.id);
-  const src = item.image ? assetPath(item.image) : "";
-  const showImg = Boolean(src) && !failed;
+  const { slots, ready } = useItemSlots(item);
+  const cover = slots[0];
 
-  // The user's own photo (IndexedDB) always wins over the bundled packshot.
-  if (user.url) {
-    return (
-      <div className={`relative overflow-hidden bg-fill-3 ${aspect} ${rounded} ${className}`}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={user.url} alt={item.name} decoding="async" className="h-full w-full object-cover" data-user-photo="" />
-      </div>
-    );
-  }
-  // Don't flash the packshot while we check for a user photo.
-  if (!user.ready) {
+  // Don't flash the packshot while we check IndexedDB for a user cover photo.
+  if (!ready && item.id) {
     return <div className={`relative overflow-hidden bg-fill-4 ${aspect} ${rounded} ${className}`} role="img" aria-label={item.name} />;
   }
 
+  // The cover (slot 0) is shown everywhere: user photos edge-to-edge, packshots on a white plate.
+  if (cover?.kind === "user" && cover.url) {
+    return (
+      <div className={`relative overflow-hidden bg-fill-3 ${aspect} ${rounded} ${className}`}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={cover.url} alt={item.name} decoding="async" className="h-full w-full object-cover" data-user-photo="" />
+      </div>
+    );
+  }
+
+  const src = cover?.kind === "bundled" && cover.url ? cover.url : item.id ? "" : item.image ? assetPath(item.image) : "";
+  const showImg = Boolean(src) && !failed;
   if (showImg) {
     return (
       <div className={`relative overflow-hidden bg-white ${aspect} ${rounded} ${className}`}>

@@ -51,6 +51,13 @@ export type InventoryItem = {
   lastVendor?: string | null;
   /** Public path like /item-photos/SID.jpg — use assetPath() for <img src> */
   image?: string | null;
+  /** Optional product page (open-only, never fetched). Normalised https URL. */
+  productUrl?: string | null;
+  /**
+   * Gallery order (max 4). Entries are "bundled" (the seed packshot in `image`)
+   * or IndexedDB photo keys. Undefined = legacy/default order, derived at runtime.
+   */
+  photoOrder?: string[];
 };
 
 export type Purchase = {
@@ -100,6 +107,8 @@ export type InventoryState = {
 };
 
 export type ItemDraft = {
+  /** Optional pre-generated id (lets Add Item key photos before the item exists). */
+  id?: string;
   name: string;
   folder: string;
   quantity: number;
@@ -111,6 +120,8 @@ export type ItemDraft = {
   attributes: Attribute[];
   archived?: boolean;
   image?: string | null;
+  productUrl?: string | null;
+  photoOrder?: string[];
 };
 
 export type LogPurchaseInput = {

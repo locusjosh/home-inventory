@@ -25,6 +25,8 @@ export type IconName =
   | "square.and.arrow.up"
   | "square.and.arrow.down"
   | "trash"
+  | "link"
+  | "arrow.up.right.square"
   | "archivebox"
   | "lightbulb"
   | "exclamationmark.triangle"
@@ -177,6 +179,20 @@ export function Icon({ name, size = 22, strokeWidth = 1.8, ...rest }: Props) {
         <svg {...common}>
           <path d="M12 3.5v11M8 10.5l4 4 4-4" />
           <path d="M8.5 10H6.5a1 1 0 0 0-1 1v8.5a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1V11a1 1 0 0 0-1-1h-2" />
+        </svg>
+      );
+    case "link":
+      return (
+        <svg {...common}>
+          <path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1.2 1.2" />
+          <path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1.2-1.2" />
+        </svg>
+      );
+    case "arrow.up.right.square":
+      return (
+        <svg {...common}>
+          <path d="M13 4.5h-7a1.5 1.5 0 0 0-1.5 1.5v12A1.5 1.5 0 0 0 6 19.5h12a1.5 1.5 0 0 0 1.5-1.5v-7" />
+          <path d="M15 4.5h4.5V9M19.5 4.5l-8 8" />
         </svg>
       );
     case "trash":

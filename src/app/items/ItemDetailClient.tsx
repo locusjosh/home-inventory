@@ -6,6 +6,7 @@ import { useInventory } from "@/context/InventoryContext";
 import { FOLDERS, type Attribute } from "@/lib/types";
 import { LogPurchaseSheet } from "@/components/LogPurchaseSheet";
 import { ItemPhotoEditor } from "@/components/ItemPhotoEditor";
+import { OpenProductLink, ProductUrlField } from "@/components/ProductLink";
 import { EmptyState } from "@/components/EmptyState";
 import { Page } from "@/components/ui/Page";
 import { ListRow, ListSection } from "@/components/ui/List";
@@ -87,6 +88,7 @@ export default function ItemDetailPage() {
               {needs ? <StatusTag tone="blue">Needs a count</StatusTag> : null}
               {item.archived ? <StatusTag tone="gray">Archived</StatusTag> : null}
             </div>
+            {item.productUrl ? <OpenProductLink url={item.productUrl} className="mt-3" /> : null}
           </div>
         </div>
 
@@ -149,6 +151,7 @@ export default function ItemDetailPage() {
           <FieldRow label="Store">
             <TextInput value={item.vendor ?? ""} placeholder="None" onChange={(e) => setField("vendor", e.target.value || null)} />
           </FieldRow>
+          <ProductUrlField value={item.productUrl} onCommit={(url) => setField("productUrl", url)} />
           <FieldRow label="Notes" stacked>
             <TextArea
               value={item.notes ?? ""}
