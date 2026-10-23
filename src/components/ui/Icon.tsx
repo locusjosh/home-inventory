@@ -48,6 +48,9 @@ export type IconName =
   | "arrow.up.arrow.down"
   | "iphone"
   | "waveform"
+  | "icloud"
+  | "icloud.sync"
+  | "icloud.exclamation"
   /* item symbols */
   | "battery"
   | "drop"
@@ -268,6 +271,22 @@ export function Icon({ name, size = 22, strokeWidth = 1.8, ...rest }: Props) {
       return <svg {...common}><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 10.5v3" /></svg>;
     case "info.circle":
       return <svg {...common}><circle cx="12" cy="12" r="9" /><path d="M12 11v5.5" />{dot(12, 7.8, 1.1)}</svg>;
+    case "icloud":
+      return <svg {...common}><path d="M7 18.5h10.2a4.3 4.3 0 0 0 .6-8.56A5.8 5.8 0 0 0 6.6 9.1 4.7 4.7 0 0 0 7 18.5z" /></svg>;
+    case "icloud.sync":
+      return (
+        <svg {...common}>
+          <path d="M7 18.5h10.2a4.3 4.3 0 0 0 .6-8.56A5.8 5.8 0 0 0 6.6 9.1 4.7 4.7 0 0 0 7 18.5z" />
+          <path d="M9.6 13.4a2.5 2.5 0 0 1 4.3-1.5l.6.6M14.5 11v1.5H13M14.4 14.6a2.5 2.5 0 0 1-4.3 1.5l-.6-.6M9.5 17v-1.5H11" strokeWidth={1.5} />
+        </svg>
+      );
+    case "icloud.exclamation":
+      return (
+        <svg {...common}>
+          <path d="M7 18.5h10.2a4.3 4.3 0 0 0 .6-8.56A5.8 5.8 0 0 0 6.6 9.1 4.7 4.7 0 0 0 7 18.5z" />
+          <path d="M12 11.2v3" />{dot(12, 16.4, 1)}
+        </svg>
+      );
     case "xmark":
       return <svg {...common}><path d="M6 6l12 12M18 6 6 18" /></svg>;
     case "xmark.circle":

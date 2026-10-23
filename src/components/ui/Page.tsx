@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { Icon } from "./Icon";
+import { SyncIndicator } from "../SyncIndicator";
 
 type Back = { href: string; label: string; useHistory?: boolean };
 
@@ -123,7 +124,12 @@ export function Page({
 
       {!hideLargeTitle ? (
         <header className="mx-auto max-w-2xl px-4 pb-3 pt-1">
-          <h1 className="text-large-title text-label">{title}</h1>
+          <div className="flex items-end justify-between gap-2">
+            <h1 className="min-w-0 text-large-title text-label">{title}</h1>
+            <span className="-mb-1 -mr-2 shrink-0">
+              <SyncIndicator />
+            </span>
+          </div>
           {subtitle ? <p className="mt-0.5 text-subhead text-label-2">{subtitle}</p> : null}
         </header>
       ) : null}

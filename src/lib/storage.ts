@@ -52,7 +52,7 @@ function resolveImage(
   return null;
 }
 
-function normalizeItem(raw: Partial<InventoryItem> & { id: string; name: string }): InventoryItem {
+export function normalizeItem(raw: Partial<InventoryItem> & { id: string; name: string }): InventoryItem {
   return {
     id: raw.id,
     sortlyId: raw.sortlyId ?? null,
@@ -75,7 +75,7 @@ function normalizeItem(raw: Partial<InventoryItem> & { id: string; name: string 
   };
 }
 
-function normalizePurchase(raw: Partial<Purchase> & { id: string; itemId: string }): Purchase | null {
+export function normalizePurchase(raw: Partial<Purchase> & { id: string; itemId: string }): Purchase | null {
   if (typeof raw.pricePaid !== "number" || !Number.isFinite(raw.pricePaid)) return null;
   const qty = typeof raw.qty === "number" && raw.qty > 0 ? raw.qty : 1;
   const unitPricePaid =
@@ -103,7 +103,7 @@ function normalizePurchase(raw: Partial<Purchase> & { id: string; itemId: string
   };
 }
 
-function normalizeReceipt(raw: Partial<ReceiptRecord> & { id: string }): ReceiptRecord {
+export function normalizeReceipt(raw: Partial<ReceiptRecord> & { id: string }): ReceiptRecord {
   return {
     id: raw.id,
     vendor: raw.vendor ?? null,

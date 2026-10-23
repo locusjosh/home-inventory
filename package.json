@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.109.0",
     "heic2any": "^0.0.4",
     "next": "^15.5.24",
     "react": "19.1.1",

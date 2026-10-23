@@ -3,26 +3,38 @@
 import { useEffect, useState } from "react";
 import { useInventory } from "@/context/InventoryContext";
 import { downloadBlob, itemsToCsv } from "@/lib/utils";
-import { exportPhotos } from "@/lib/photoStore";
-import { STATE_VERSION } from "@/lib/storage";
+import { buildBackupJson } from "@/lib/backup";
+import { applyTheme, readSettings, type Appearance } from "@/lib/sync/settings";
+import { noteSettingChanged } from "@/lib/sync/engine";
+import { listBackups, onOutboxChange, type BackupRecord } from "@/lib/sync/outbox";
+import { useSyncStatus } from "@/lib/sync/useSync";
 import { Page } from "@/components/ui/Page";
 import { IconTile, ListRow, ListSection } from "@/components/ui/List";
 import { SegmentedControl } from "@/components/ui/Controls";
 import { ActionSheet } from "@/components/ui/Sheet";
 import { Icon } from "@/components/ui/Icon";
 
-type Appearance = "auto" | "light" | "dark";
-const THEME_KEY = "home-inventory-theme";
 
 export default function DataPage() {
   const { items, purchases, receipts, myItems, ideaItems, importJson, reset } = useInventory();
   const [message, setMessage] = useState<string | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
   const [appearance, setAppearance] = useState<Appearance>("auto");
+  const [backups, setBackups] = useState<BackupRecord[]>([]);
+  const sync = useSyncStatus();
+  const synced = sync.configured && sync.phase !== "signed-out" && sync.phase !== "starting";
 
   useEffect(() => {
-    const v = localStorage.getItem(THEME_KEY);
-    setAppearance(v === "light" || v === "dark" ? v : "auto");
+    const read = () => setAppearance(readSettings().theme);
+    read();
+    window.addEventListener("hi-settings-changed", read);
+    return () => window.removeEventListener("hi-settings-changed", read);
+  }, []);
+
+  useEffect(() => {
+    const load = () => void listBackups().then(setBackups).catch(() => setBackups([]));
+    load();
+    return onOutboxChange(load);
   }, []);
 
   useEffect(() => {
@@ -33,33 +45,21 @@ export default function DataPage() {
 
   const changeAppearance = (v: Appearance) => {
     setAppearance(v);
-    if (v === "auto") localStorage.removeItem(THEME_KEY);
-    else localStorage.setItem(THEME_KEY, v);
-    const w = window as unknown as { __applyTheme?: () => void };
-    if (w.__applyTheme) w.__applyTheme();
-    else
-      document.documentElement.classList.toggle(
-        "dark",
-        v === "dark" || (v === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches)
-      );
+    applyTheme(v);
+    noteSettingChanged("theme");
   };
 
   const stamp = () => new Date().toISOString().slice(0, 10);
 
   const exportJson = async () => {
-    let photos: Record<string, string> = {};
-    try {
-      photos = await exportPhotos();
-    } catch (err) {
-      console.error(err);
-    }
-    // stateVersion lets imports know which data migrations still apply.
-    const payload = { version: 5, stateVersion: STATE_VERSION, exportedAt: new Date().toISOString(), items, purchases, receipts, photos };
-    downloadBlob(
-      `home-inventory-${stamp()}.json`,
-      new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" })
-    );
+    const json = await buildBackupJson({ items, purchases, receipts });
+    downloadBlob(`home-inventory-${stamp()}.json`, new Blob([json], { type: "application/json" }));
     setMessage("Backup exported");
+  };
+
+  const downloadPreSync = (b: BackupRecord) => {
+    downloadBlob(`home-inventory-before-sync-${b.createdAt.slice(0, 10)}.json`, new Blob([b.json], { type: "application/json" }));
+    setMessage("Backup downloaded");
   };
 
   const exportCsv = () => {
@@ -91,7 +91,11 @@ export default function DataPage() {
       <div className="space-y-7">
         <ListSection
           header="Storage"
-          footer="Saved on this iPhone only — not backed up to iCloud yet. Export a backup now and then."
+          footer={
+            synced
+              ? "Saved on this iPhone and synced to your account. Exporting a backup now and then is still a good idea."
+              : "Saved on this iPhone only. Export a backup now and then, or turn on Sync in More."
+          }
         >
           <ListRow
             leading={<IconTile color="#636366"><Icon name="iphone" size={18} strokeWidth={2} /></IconTile>}
@@ -134,7 +138,14 @@ export default function DataPage() {
           />
         </section>
 
-        <ListSection header="Backup" footer="Restoring replaces everything on this iPhone with the file’s contents.">
+        <ListSection
+          header="Backup"
+          footer={
+            synced
+              ? "Restoring replaces this iPhone’s data with the file and syncs it. Items that exist only in your account come back on the next sync."
+              : "Restoring replaces everything on this iPhone with the file’s contents."
+          }
+        >
           <ListRow
             onClick={() => void exportJson()}
             leading={<IconTile color="#0071e3"><Icon name="square.and.arrow.up" size={18} strokeWidth={2} /></IconTile>}
@@ -167,6 +178,24 @@ export default function DataPage() {
           }}
         />
 
+        {backups.length ? (
+          <ListSection
+            header="Before Sync"
+            footer="A full copy of this iPhone’s data, saved automatically the first time it synced. Restore it with Restore from Backup."
+          >
+            {backups.map((b) => (
+              <ListRow
+                key={b.id}
+                onClick={() => downloadPreSync(b)}
+                leading={<IconTile color="#0071e3"><Icon name="square.and.arrow.down" size={18} strokeWidth={2} /></IconTile>}
+                title="Download Pre-Sync Backup"
+                subtitle={`${new Date(b.createdAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}${b.email ? ` · ${b.email}` : ""}`}
+                ariaLabel={`Download pre-sync backup from ${new Date(b.createdAt).toLocaleString()}`}
+              />
+            ))}
+          </ListSection>
+        ) : null}
+
         <ListSection
           header="Install"
           footer="In Safari, tap Share, then Add to Home Screen for a full-screen app that works offline."
@@ -177,7 +206,13 @@ export default function DataPage() {
           />
         </ListSection>
 
-        <ListSection footer="Puts back the original starter list and removes your changes, photos, counts and purchase history.">
+        <ListSection
+          footer={
+            synced
+              ? "Puts back the starter list on this iPhone only. Your synced inventory isn’t deleted and downloads again on the next sync."
+              : "Puts back the original starter list and removes your changes, photos, counts and purchase history."
+          }
+        >
           <ListRow onClick={() => setConfirmReset(true)} title="Reset to Original Data" destructive />
         </ListSection>
       </div>
@@ -186,7 +221,11 @@ export default function DataPage() {
         open={confirmReset}
         onClose={() => setConfirmReset(false)}
         title="Reset all inventory data?"
-        message="Counts, photos, purchases and edits on this iPhone will be replaced. Export a backup first if you want to keep them."
+        message={
+          synced
+            ? "This iPhone goes back to the starter list, then downloads your synced inventory again. Nothing is deleted from your account."
+            : "Counts, photos, purchases and edits on this iPhone will be replaced. Export a backup first if you want to keep them."
+        }
         actions={[
           {
             label: "Reset Inventory",

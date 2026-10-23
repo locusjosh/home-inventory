@@ -77,7 +77,72 @@ function notify() {
   listeners.forEach((l) => l());
 }
 
-export function loadIndex(): Promise<Set<string>> {
+// ---- sync hooks -------------------------------------------------------------
+// Cloud sync listens for local saves/deletes (to queue uploads + tombstones) and
+// can register photos that exist in the cloud but not yet on this device. Those
+// show up in the index and are downloaded lazily the first time they're shown.
+
+export type PhotoEvent = { type: "saved" | "deleted"; key: string };
+type WriteOpts = { fromSync?: boolean };
+const eventListeners = new Set<(e: PhotoEvent) => void>();
+export function onPhotoEvent(fn: (e: PhotoEvent) => void) {
+  eventListeners.add(fn);
+  return () => void eventListeners.delete(fn);
+}
+function emit(e: PhotoEvent, opts?: WriteOpts) {
+  if (opts?.fromSync) return;
+  eventListeners.forEach((l) => {
+    try {
+      l(e);
+    } catch (err) {
+      console.error(err);
+    }
+  });
+}
+
+let remoteKeys = new Set<string>();
+let remoteFetcher: ((key: string) => Promise<boolean>) | null = null;
+const inflight = new Map<string, Promise<boolean>>();
+
+/** Photo keys known to exist in the cloud (not deleted). Replaces the previous set. */
+export function setRemotePhotoKeys(keys: Iterable<string>) {
+  const next = new Set(keys);
+  const same = next.size === remoteKeys.size && [...next].every((k) => remoteKeys.has(k));
+  remoteKeys = next;
+  if (!same) notify();
+}
+export function setRemotePhotoFetcher(fn: ((key: string) => Promise<boolean>) | null) {
+  remoteFetcher = fn;
+}
+function fetchRemote(key: string) {
+  if (!remoteFetcher) return;
+  if (inflight.has(key)) return;
+  const p = remoteFetcher(key)
+    .catch(() => false)
+    .finally(() => inflight.delete(key));
+  inflight.set(key, p);
+}
+
+/** Keys stored on this device (no cloud-only keys). */
+export function loadLocalIndex(): Promise<Set<string>> {
+  return loadIndex();
+}
+
+export function hasLocalPhoto(key: string): boolean {
+  return Boolean(index?.has(key));
+}
+
+export async function getPhotoRecord(key: string): Promise<PhotoRecord | null> {
+  const rec = await tx<PhotoRecord>("readonly", (s) => s.get(key)).catch(() => undefined);
+  return rec ?? null;
+}
+
+export async function listPhotoRecordsMeta(): Promise<Array<Pick<PhotoRecord, "id" | "itemId" | "width" | "height">>> {
+  const all = (await tx<PhotoRecord[]>("readonly", (s) => s.getAll()).catch(() => [])) ?? [];
+  return all.map((r) => ({ id: r.id, itemId: r.itemId, width: r.width, height: r.height }));
+}
+
+function loadIndex(): Promise<Set<string>> {
   if (index) return Promise.resolve(index);
   if (!indexPromise) {
     indexPromise = tx<IDBValidKey[]>("readonly", (s) => s.getAllKeys())
@@ -102,7 +167,11 @@ function dropUrl(key: string) {
 export async function getPhotoUrl(key: string): Promise<string | null> {
   if (urlCache.has(key)) return urlCache.get(key) ?? null;
   const idx = await loadIndex();
-  if (!idx.has(key)) return null;
+  if (!idx.has(key)) {
+    // Cloud-only photo: download in the background; listeners re-render when it lands.
+    if (remoteKeys.has(key)) fetchRemote(key);
+    return null;
+  }
   const rec = await tx<PhotoRecord>("readonly", (s) => s.get(key)).catch(() => undefined);
   const blob = rec ? recordBlob(rec) : null;
   const url = blob ? URL.createObjectURL(blob) : null;
@@ -124,30 +193,40 @@ async function putRecord(key: string, blob: Blob, meta: { width?: number; height
   dropUrl(key);
 }
 
-export async function savePhoto(key: string, blob: Blob, meta: { width?: number; height?: number } = {}) {
+export async function savePhoto(
+  key: string,
+  blob: Blob,
+  meta: { width?: number; height?: number } = {},
+  opts?: WriteOpts
+) {
   await putRecord(key, blob, meta);
   notify();
+  emit({ type: "saved", key }, opts);
 }
 
-export async function deletePhoto(key: string) {
+export async function deletePhoto(key: string, opts?: WriteOpts) {
   await tx("readwrite", (s) => s.delete(key)).catch(() => undefined);
   (await loadIndex()).delete(key);
+  if (opts?.fromSync) remoteKeys.delete(key);
   dropUrl(key);
   notify();
+  emit({ type: "deleted", key }, opts);
 }
 
-export async function deletePhotosForItem(itemId: string) {
+export async function deletePhotosForItem(itemId: string, opts?: WriteOpts) {
   const idx = await loadIndex();
-  const keys = [...idx].filter((k) => isKeyForItem(k, itemId));
+  const keys = [...new Set([...idx, ...remoteKeys])].filter((k) => isKeyForItem(k, itemId));
   if (!keys.length) return;
   await tx("readwrite", (s) => {
     keys.forEach((k) => s.delete(k));
   }).catch(() => undefined);
   keys.forEach((k) => {
     idx.delete(k);
+    remoteKeys.delete(k);
     dropUrl(k);
   });
   notify();
+  keys.forEach((k) => emit({ type: "deleted", key: k }, opts));
 }
 
 export async function clearPhotos() {
@@ -182,6 +261,7 @@ export async function importPhotos(photos: Record<string, string> | undefined | 
     if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/")) continue;
     if (validItemIds && !validItemIds.has(itemIdOfKey(key))) continue;
     await putRecord(key, await dataUrlToBlob(dataUrl));
+    emit({ type: "saved", key });
     n++;
   }
   notify();
@@ -190,12 +270,12 @@ export async function importPhotos(photos: Record<string, string> | undefined | 
 
 /** Set of photo keys in IndexedDB (null until loaded). Re-renders on change. */
 export function usePhotoIndex(): Set<string> | null {
-  const [loaded, setLoaded] = useState<Set<string> | null>(() => (index ? new Set(index) : null));
+  const [loaded, setLoaded] = useState<Set<string> | null>(() => (index ? new Set([...index, ...remoteKeys]) : null));
   useEffect(() => {
     let alive = true;
     const refresh = () =>
       void loadIndex().then((s) => {
-        if (alive) setLoaded(new Set(s));
+        if (alive) setLoaded(new Set([...s, ...remoteKeys]));
       });
     refresh();
     listeners.add(refresh);

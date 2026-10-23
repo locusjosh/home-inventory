@@ -6,6 +6,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import type {
@@ -18,6 +19,8 @@ import type {
 } from "@/lib/types";
 import { importState, loadState, resetToSeed, saveState } from "@/lib/storage";
 import { clearPhotos, deletePhotosForItem, importPhotos } from "@/lib/photoStore";
+import { initSync, noteLocalChange } from "@/lib/sync/engine";
+import type { ChangeMode } from "@/lib/sync/meta";
 import { ideaItems as filterIdeaItems, isLowStock, myItems as filterMyItems, needsCount, uid } from "@/lib/utils";
 
 type InventoryContextValue = {
@@ -60,14 +63,30 @@ const InventoryContext = createContext<InventoryContextValue | null>(null);
 
 export function InventoryProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<InventoryState | null>(null);
+  /** Latest state, readable synchronously by the sync engine. */
+  const stateRef = useRef<InventoryState | null>(null);
 
   useEffect(() => {
-    setState(loadState());
+    const loaded = loadState();
+    stateRef.current = loaded;
+    setState(loaded);
+    initSync({
+      getState: () => stateRef.current,
+      applyRemote: (next) => {
+        stateRef.current = next;
+        setState(next);
+        saveState(next);
+      },
+    });
   }, []);
 
-  const persist = useCallback((next: InventoryState) => {
+  /** Every local change goes through here: saved locally first, then stamped + queued for sync. */
+  const persist = useCallback((next: InventoryState, mode: ChangeMode = "edit") => {
+    const prev = stateRef.current;
+    stateRef.current = next;
     setState(next);
     saveState(next);
+    noteLocalChange(prev, next, mode);
   }, []);
 
   const items = useMemo(() => state?.items ?? [], [state?.items]);
@@ -384,7 +403,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
   );
 
   const reset = useCallback(() => {
-    persist(resetToSeed());
+    persist(resetToSeed(), "reset");
     void clearPhotos();
   }, [persist]);
 
@@ -392,7 +411,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
   const importJson = useCallback(
     async (data: unknown) => {
       const next = importState(data);
-      persist(next);
+      persist(next, "import");
       const photos =
         data && typeof data === "object" && !Array.isArray(data)
           ? ((data as { photos?: Record<string, string> }).photos ?? null)
@@ -410,7 +429,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
         receipts: state?.receipts ?? [],
         version: 3,
         seededAt: new Date().toISOString(),
-      });
+      }, "import");
     },
     [persist, state?.purchases, state?.receipts]
   );

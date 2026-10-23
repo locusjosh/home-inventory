@@ -4,6 +4,7 @@ import { useInventory } from "@/context/InventoryContext";
 import { Page } from "@/components/ui/Page";
 import { CountBadge, IconTile, ListRow, ListSection } from "@/components/ui/List";
 import { Icon } from "@/components/ui/Icon";
+import { SyncSection } from "@/components/SyncSection";
 
 export default function MorePage() {
   const { lowStockItems, ideaItems } = useInventory();
@@ -42,6 +43,8 @@ export default function MorePage() {
             chevron
           />
         </ListSection>
+
+        <SyncSection />
 
         <ListSection>
           <ListRow

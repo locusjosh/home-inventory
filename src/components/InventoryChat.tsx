@@ -1,5 +1,6 @@
 "use client";
 
+import { noteSettingChanged } from "@/lib/sync/engine";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useInventory } from "@/context/InventoryContext";
 import {
@@ -147,10 +148,13 @@ export function InventoryChat(_props: InventoryChatProps = {}) {
     setVoiceSupported(isSpeechRecognitionSupported());
     setTtsSupported(isSpeechSynthesisSupported());
     setVoiceReplies(loadVoiceRepliesEnabled());
+    const onSettings = () => setVoiceReplies(loadVoiceRepliesEnabled());
+    window.addEventListener("hi-settings-changed", onSettings);
     setHydrated(true);
     ensureVoicesLoaded();
 
     return () => {
+      window.removeEventListener("hi-settings-changed", onSettings);
       recognitionRef.current?.abort();
       recognitionRef.current = null;
       stopSpeaking();
@@ -437,6 +441,7 @@ export function InventoryChat(_props: InventoryChatProps = {}) {
     setVoiceReplies((v) => {
       const next = !v;
       saveVoiceRepliesEnabled(next);
+      noteSettingChanged("voiceReplies");
       if (!next) stopSpeaking();
       return next;
     });
