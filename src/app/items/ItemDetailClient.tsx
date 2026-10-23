@@ -257,7 +257,7 @@ export default function ItemDetailPage() {
           </div>
         </ListSection>
 
-        <ListSection footer={item.sortlyId ? `Imported from Sortly · ${item.sortlyId}` : undefined}>
+        <ListSection>
           <ListRow onClick={() => archiveItem(item.id, !item.archived)} title={item.archived ? "Unarchive Item" : "Archive Item"} tint />
           <ListRow onClick={() => setConfirmDelete(true)} title="Delete Item" destructive />
         </ListSection>

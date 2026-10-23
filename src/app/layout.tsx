@@ -14,13 +14,13 @@ export const metadata: Metadata = {
     title: "Inventory",
   },
   icons: {
-    apple: "/apple-touch-icon.png",
+    apple: "/home-inventory/apple-touch-icon.png",
     icon: [
-      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+      { url: "/home-inventory/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/home-inventory/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
   },
-  manifest: "/manifest.webmanifest",
+  manifest: "/home-inventory/manifest.webmanifest",
 };
 
 export const viewport: Viewport = {

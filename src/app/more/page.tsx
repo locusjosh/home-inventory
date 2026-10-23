@@ -14,14 +14,14 @@ export default function MorePage() {
         <ListSection>
           <ListRow
             href="/low-stock"
-            leading={<IconTile color="var(--orange)"><Icon name="exclamationmark.triangle" size={18} strokeWidth={2} /></IconTile>}
+            leading={<IconTile color="#c93400"><Icon name="exclamationmark.triangle" size={18} strokeWidth={2} /></IconTile>}
             title="Low Stock"
             trailing={<CountBadge count={lowStockItems.length} tone="red" />}
             chevron
           />
           <ListRow
             href="/ideas"
-            leading={<IconTile color="#bf8700"><Icon name="lightbulb" size={18} strokeWidth={2} /></IconTile>}
+            leading={<IconTile color="#a86f00"><Icon name="lightbulb" size={18} strokeWidth={2} /></IconTile>}
             title="Ideas"
             trailing={<CountBadge count={ideaItems.length} />}
             chevron
@@ -31,13 +31,13 @@ export default function MorePage() {
         <ListSection>
           <ListRow
             href="/receipt"
-            leading={<IconTile color="var(--green)"><Icon name="receipt" size={18} strokeWidth={2} /></IconTile>}
+            leading={<IconTile color="#248a3d"><Icon name="receipt" size={18} strokeWidth={2} /></IconTile>}
             title="Scan Receipt"
             chevron
           />
           <ListRow
             href="/add"
-            leading={<IconTile color="var(--tint-fill)"><Icon name="plus" size={18} strokeWidth={2.4} /></IconTile>}
+            leading={<IconTile color="#0071e3"><Icon name="plus" size={18} strokeWidth={2.4} /></IconTile>}
             title="Add Item"
             chevron
           />

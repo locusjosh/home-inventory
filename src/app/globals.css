@@ -9,8 +9,8 @@
 :root {
   color-scheme: light;
   --label: #000000;
-  --label-2: #6c6c70; /* secondaryLabel (AA on white + grouped bg) */
-  --label-3: #a1a1a6; /* tertiaryLabel – glyphs only, never body text */
+  --label-2: #636366; /* secondaryLabel — ≥4.5:1 on grouped bg and on tertiary fill */
+  --label-3: #848488; /* tertiaryLabel – glyphs only, never body text */
   --separator: rgba(60, 60, 67, 0.29);
   --bg-grouped: #f2f2f7; /* systemGroupedBackground */
   --bg-grouped-2: #ffffff; /* secondarySystemGroupedBackground */
@@ -19,9 +19,9 @@
   --fill-2: rgba(120, 120, 128, 0.16);
   --fill-3: rgba(118, 118, 128, 0.12);
   --fill-4: rgba(116, 116, 128, 0.08);
-  --tint: #0071e3; /* systemBlue, AA-safe */
+  --tint: #005ec2; /* systemBlue, darkened so text tint ≥4.5:1 on grouped bg, bars and soft fill */
   --tint-fill: #0071e3;
-  --tint-soft: rgba(0, 113, 227, 0.12);
+  --tint-soft: rgba(0, 94, 194, 0.1);
   --red: #e5231b; /* systemRed for badges (white text AA) */
   --red-text: #d70015;
   --orange: #c93400;
@@ -45,8 +45,8 @@
 html.dark {
   color-scheme: dark;
   --label: #ffffff;
-  --label-2: #98989f;
-  --label-3: #5b5b60;
+  --label-2: #a1a1a8;
+  --label-3: #7c7c80;
   --separator: rgba(84, 84, 88, 0.65);
   --bg-grouped: #000000;
   --bg-grouped-2: #1c1c1e;
@@ -55,9 +55,9 @@ html.dark {
   --fill-2: rgba(120, 120, 128, 0.32);
   --fill-3: rgba(118, 118, 128, 0.24);
   --fill-4: rgba(118, 118, 128, 0.18);
-  --tint: #409cff;
+  --tint: #4aa3ff;
   --tint-fill: #0070e0;
-  --tint-soft: rgba(64, 156, 255, 0.18);
+  --tint-soft: rgba(74, 163, 255, 0.16);
   --red: #e5231b;
   --red-text: #ff453a;
   --orange: #ff9f0a;

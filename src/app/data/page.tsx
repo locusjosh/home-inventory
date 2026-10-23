@@ -91,12 +91,12 @@ export default function DataPage() {
             value={`${myItems.length} items`}
           />
           <ListRow
-            leading={<IconTile color="#bf8700"><Icon name="lightbulb" size={18} strokeWidth={2} /></IconTile>}
+            leading={<IconTile color="#a86f00"><Icon name="lightbulb" size={18} strokeWidth={2} /></IconTile>}
             title="Ideas"
             value={ideaItems.length}
           />
           <ListRow
-            leading={<IconTile color="var(--green)"><Icon name="receipt" size={18} strokeWidth={2} /></IconTile>}
+            leading={<IconTile color="#248a3d"><Icon name="receipt" size={18} strokeWidth={2} /></IconTile>}
             title="Purchases Logged"
             value={purchases.length}
           />
@@ -105,7 +105,7 @@ export default function DataPage() {
         <ListSection header="Assistant">
           <ListRow
             href="/assist"
-            leading={<IconTile color="var(--tint-fill)"><Icon name="waveform" size={18} strokeWidth={2.2} /></IconTile>}
+            leading={<IconTile color="#0071e3"><Icon name="waveform" size={18} strokeWidth={2.2} /></IconTile>}
             title="Open Assistant"
             subtitle="Ask about stock by voice or text"
             chevron
@@ -129,13 +129,13 @@ export default function DataPage() {
         <ListSection header="Backup" footer="Restoring replaces everything on this iPhone with the file’s contents.">
           <ListRow
             onClick={exportJson}
-            leading={<IconTile color="var(--tint-fill)"><Icon name="square.and.arrow.up" size={18} strokeWidth={2} /></IconTile>}
+            leading={<IconTile color="#0071e3"><Icon name="square.and.arrow.up" size={18} strokeWidth={2} /></IconTile>}
             title="Export Backup"
             subtitle="JSON · items, purchases, receipts"
           />
           <ListRow
             onClick={exportCsv}
-            leading={<IconTile color="var(--tint-fill)"><Icon name="doc.text" size={18} strokeWidth={2} /></IconTile>}
+            leading={<IconTile color="#0071e3"><Icon name="doc.text" size={18} strokeWidth={2} /></IconTile>}
             title="Export Spreadsheet"
             subtitle="CSV · items only"
           />
@@ -167,7 +167,7 @@ export default function DataPage() {
           />
         </ListSection>
 
-        <ListSection footer="Restores the original 97 items from Sortly and removes your changes.">
+        <ListSection footer="Puts back the original starter list and removes your changes, counts and purchase history.">
           <ListRow onClick={() => setConfirmReset(true)} title="Reset to Original Data" destructive />
         </ListSection>
       </div>
