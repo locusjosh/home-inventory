@@ -1,15 +1,23 @@
 import type { InventoryItem, InventoryState, Purchase, ReceiptRecord } from "./types";
 import seed from "../../data/seed.json";
 import photoMap from "../../data/photo-map.json";
+import photoOverrides from "../../data/photo-overrides.json";
 
 const STORAGE_KEY = "home-inventory-v1";
-const CURRENT_VERSION = 5;
+const CURRENT_VERSION = 6;
 
 const PHOTO_MAP = photoMap as Record<string, string>;
+/** Verified replacements keyed by item id (fixes wrong packshots in saved data). */
+const PHOTO_OVERRIDES = photoOverrides as Record<string, string>;
 
 function resolveImage(
   raw: Partial<InventoryItem> & { id: string }
 ): string | null {
+  const override = PHOTO_OVERRIDES[raw.id];
+  const bundled =
+    typeof raw.image !== "string" || raw.image.length === 0 || raw.image.startsWith("/item-photos/");
+  // Only replace bundled photos — never a user-supplied image.
+  if (override && bundled) return override;
   if (typeof raw.image === "string" && raw.image.length > 0) return raw.image;
   const keys = [raw.sortlyId, raw.id].filter(
     (k): k is string => typeof k === "string" && k.length > 0

@@ -2,52 +2,97 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * iOS semantic color tokens (light). Values follow UIKit system colors,
+ * nudged where needed so text meets WCAG AA (≥ 4.5:1).
+ */
 :root {
-  --surface: 252 250 247;
-  --surface-2: 243 238 231;
-  --surface-3: 214 205 194;
-  --ink: 24 22 20;
-  --ink-muted: 87 83 78;
-  --accent: 67 56 202;
-  --accent-soft: 224 231 255;
-  --danger: 185 28 28;
-  --warn: 146 64 14;
-  --ring: 79 70 229;
-  --glass: 255 255 255;
-  --hero-from: 243 238 231;
-  --hero-to: 224 231 255;
+  color-scheme: light;
+  --label: #000000;
+  --label-2: #6c6c70; /* secondaryLabel (AA on white + grouped bg) */
+  --label-3: #a1a1a6; /* tertiaryLabel – glyphs only, never body text */
+  --separator: rgba(60, 60, 67, 0.29);
+  --bg-grouped: #f2f2f7; /* systemGroupedBackground */
+  --bg-grouped-2: #ffffff; /* secondarySystemGroupedBackground */
+  --bg-grouped-3: #f2f2f7; /* tertiarySystemGroupedBackground */
+  --fill: rgba(120, 120, 128, 0.2);
+  --fill-2: rgba(120, 120, 128, 0.16);
+  --fill-3: rgba(118, 118, 128, 0.12);
+  --fill-4: rgba(116, 116, 128, 0.08);
+  --tint: #0071e3; /* systemBlue, AA-safe */
+  --tint-fill: #0071e3;
+  --tint-soft: rgba(0, 113, 227, 0.12);
+  --red: #e5231b; /* systemRed for badges (white text AA) */
+  --red-text: #d70015;
+  --orange: #c93400;
+  --green: #248a3d;
+  --bubble: #e9e9eb;
+  --bar: rgba(249, 249, 249, 0.82);
+  --bar-border: rgba(0, 0, 0, 0.18);
+
+  /* legacy rgb triplets */
+  --surface: 255 255 255;
+  --surface-2: 242 242 247;
+  --surface-3: 229 229 234;
+  --ink: 0 0 0;
+  --ink-muted: 108 108 112;
+  --accent: 0 113 227;
+  --accent-soft: 229 240 255;
+  --danger: 215 0 21;
+  --warn: 201 52 0;
 }
 
 html.dark {
-  --surface: 32 28 26;
-  --surface-2: 18 16 15;
-  --surface-3: 55 48 44;
-  --ink: 250 247 242;
-  --ink-muted: 186 178 170;
-  --accent: 165 180 252;
-  --accent-soft: 49 46 129;
-  --danger: 252 165 165;
-  --warn: 252 211 77;
-  --ring: 199 210 254;
-  --glass: 32 28 26;
-  --hero-from: 32 28 26;
-  --hero-to: 49 46 129;
+  color-scheme: dark;
+  --label: #ffffff;
+  --label-2: #98989f;
+  --label-3: #5b5b60;
+  --separator: rgba(84, 84, 88, 0.65);
+  --bg-grouped: #000000;
+  --bg-grouped-2: #1c1c1e;
+  --bg-grouped-3: #2c2c2e;
+  --fill: rgba(120, 120, 128, 0.36);
+  --fill-2: rgba(120, 120, 128, 0.32);
+  --fill-3: rgba(118, 118, 128, 0.24);
+  --fill-4: rgba(118, 118, 128, 0.18);
+  --tint: #409cff;
+  --tint-fill: #0070e0;
+  --tint-soft: rgba(64, 156, 255, 0.18);
+  --red: #e5231b;
+  --red-text: #ff453a;
+  --orange: #ff9f0a;
+  --green: #30d158;
+  --bubble: #26252a;
+  --bar: rgba(22, 22, 24, 0.8);
+  --bar-border: rgba(255, 255, 255, 0.15);
+
+  --surface: 28 28 30;
+  --surface-2: 0 0 0;
+  --surface-3: 58 58 60;
+  --ink: 255 255 255;
+  --ink-muted: 152 152 159;
+  --accent: 64 156 255;
+  --accent-soft: 20 40 70;
+  --danger: 255 69 58;
+  --warn: 255 159 10;
 }
 
 html,
 body {
   max-width: 100vw;
   min-height: 100%;
+  background: var(--bg-grouped);
 }
 
 body {
-  background:
-    radial-gradient(1200px 600px at 10% -10%, rgb(var(--accent-soft) / 0.45), transparent 55%),
-    radial-gradient(900px 500px at 100% 0%, rgb(var(--warn) / 0.1), transparent 50%),
-    rgb(var(--surface-2));
-  color: rgb(var(--ink));
+  color: var(--label);
+  font-size: 17px;
+  line-height: 22px;
+  letter-spacing: -0.41px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+  text-rendering: optimizeLegibility;
 }
 
 * {
@@ -55,7 +100,22 @@ body {
 }
 
 ::selection {
-  background: rgb(var(--accent) / 0.25);
+  background: var(--tint-soft);
+}
+
+input,
+select,
+textarea,
+button {
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--label-2);
+  opacity: 1;
 }
 
 input[type="number"]::-webkit-inner-spin-button,
@@ -69,6 +129,10 @@ input[type="number"] {
   appearance: textfield;
 }
 
+input[type="search"]::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}
+
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
@@ -78,60 +142,89 @@ input[type="number"] {
 }
 
 @layer components {
-  .card-lux {
-    @apply rounded-2xl border border-surface-3 bg-surface shadow-lux transition duration-200;
+  /* Translucent material for nav + tab bars */
+  .ios-bar {
+    background: var(--bar);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+  }
+  .hairline-t {
+    box-shadow: inset 0 0.5px 0 var(--bar-border);
+  }
+  .hairline-b {
+    box-shadow: inset 0 -0.5px 0 var(--bar-border);
   }
   .pressable {
-    @apply transition duration-150 ease-out active:scale-[0.97];
+    transition: opacity 150ms ease, transform 150ms ease, background-color 150ms ease;
+  }
+  .pressable:active {
+    opacity: 0.6;
   }
   .focus-ring {
-    @apply outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--ring))]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-2;
+    outline: none;
   }
-  .glass-nav {
-    @apply border-surface-3 bg-[rgb(var(--glass)/0.88)] backdrop-blur-xl;
-    -webkit-backdrop-filter: blur(20px);
-  }
-  .chip-scroll {
-    @apply relative;
-  }
-  .chip-scroll-fade {
-    @apply pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-[rgb(var(--surface-2))] to-transparent;
+  .focus-ring:focus-visible {
+    box-shadow: 0 0 0 3px var(--tint-soft), 0 0 0 1.5px var(--tint);
   }
   .skeleton {
-    @apply animate-pulse rounded-2xl bg-surface-3/70;
+    @apply animate-pulse rounded-card;
+    background: var(--fill-3);
+  }
+  /* Legacy helper — iOS cards have no borders */
+  .card-lux {
+    @apply rounded-card;
+    background: var(--bg-grouped-2);
+  }
+  .ios-input {
+    @apply w-full min-h-tap bg-transparent text-body text-label outline-none;
   }
 }
 
-/* Assist panel — warm ink, not pure black void */
-.assist-panel {
-  background: linear-gradient(
-    165deg,
-    rgb(45 40 55) 0%,
-    rgb(36 33 48) 45%,
-    rgb(28 27 38) 100%
-  );
-}
-
-.assist-glass {
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+/* Row separators: hairline, inset from the leading text edge (iOS inset grouped) */
+.ios-group > .ios-row + .ios-row .ios-row-inner {
+  box-shadow: inset 0 0.5px 0 var(--separator);
 }
 
 @keyframes mic-pulse-ring {
-  0% { box-shadow: 0 0 0 0 rgba(129, 140, 248, 0.45); }
-  70% { box-shadow: 0 0 0 18px rgba(129, 140, 248, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(129, 140, 248, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(229, 35, 27, 0.4); }
+  70% { box-shadow: 0 0 0 14px rgba(229, 35, 27, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(229, 35, 27, 0); }
 }
-
 .mic-pulse {
   animation: mic-pulse-ring 1.4s ease-out infinite;
 }
 
 @keyframes fade-up {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fade-up {
+  animation: fade-up 0.25s ease-out backwards;
 }
 
-.animate-fade-up {
-  animation: fade-up 0.35s ease-out both;
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
 }
+.animate-sheet-up {
+  animation: sheet-up 0.32s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-sheet-up,
+  .animate-fade-in,
+  .mic-pulse {
+    animation: none;
+  }
+}
+
+.sym-tile { color: var(--sym-fg); }
+html.dark .sym-tile { color: var(--sym-fg-dark); }

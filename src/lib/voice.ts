@@ -398,7 +398,7 @@ export function createRecognition(handlers: RecognitionHandlers): {
   };
 }
 
-export const VOICE_GREETING = "Inventory online. What do you need?";
+export const VOICE_GREETING = "Hi Josh. What do you need?";
 
 export const SILENT_MODE_TIP =
   "iPhone tip: the Silent switch (ringer) can mute spoken replies. Turn Silent Mode off, keep Voice replies on, and allow Microphone in Safari.";

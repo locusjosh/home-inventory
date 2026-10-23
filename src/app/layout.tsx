@@ -1,30 +1,17 @@
 import type { Metadata, Viewport } from "next";
-import { DM_Sans, Fraunces } from "next/font/google";
 import "./globals.css";
 import { InventoryProvider } from "@/context/InventoryContext";
 import { AppShell } from "@/components/AppShell";
 import { PwaRegister } from "@/components/PwaRegister";
 
-const dmSans = DM_Sans({
-  subsets: ["latin"],
-  variable: "--font-dm-sans",
-  display: "swap",
-});
-
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  variable: "--font-fraunces",
-  display: "swap",
-});
-
 export const metadata: Metadata = {
   title: "Home Inventory",
-  description: "Calm luxury home inventory — stock counts, restock, and voice assist.",
+  description: "Track household stock, restock what's low, and log what you paid.",
   applicationName: "Home Inventory",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Home Inventory",
+    title: "Inventory",
   },
   icons: {
     apple: "/apple-touch-icon.png",
@@ -39,11 +26,15 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f5f1eb" },
-    { media: "(prefers-color-scheme: dark)", color: "#1c1917" },
+    { media: "(prefers-color-scheme: light)", color: "#f2f2f7" },
+    { media: "(prefers-color-scheme: dark)", color: "#000000" },
   ],
 };
+
+/** Apply appearance before paint: stored override, else follow the system. */
+const themeScript = `(function(){try{var k='home-inventory-theme';var s=localStorage.getItem(k);var m=window.matchMedia('(prefers-color-scheme: dark)');var apply=function(){var v=localStorage.getItem(k);var d=v==='dark'||(v!=='light'&&m.matches);document.documentElement.classList.toggle('dark',d);};apply();m.addEventListener&&m.addEventListener('change',apply);window.__applyTheme=apply;}catch(e){}})();`;
 
 export default function RootLayout({
   children,
@@ -51,8 +42,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${dmSans.variable} ${fraunces.variable}`}>
+    <html lang="en" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="mobile-web-app-capable" content="yes" />

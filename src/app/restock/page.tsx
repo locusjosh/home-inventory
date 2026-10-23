@@ -6,88 +6,61 @@ import { useInventory } from "@/context/InventoryContext";
 import { LogPurchaseSheet } from "@/components/LogPurchaseSheet";
 import { ItemImage } from "@/components/ItemImage";
 import { EmptyState } from "@/components/EmptyState";
+import { itemHref } from "@/components/ItemCard";
+import { Page } from "@/components/ui/Page";
+import { ChipBar } from "@/components/ui/Controls";
+import { ActionSheet } from "@/components/ui/Sheet";
+import { Button, ButtonLink, IconButton } from "@/components/ui/Button";
+import { Icon } from "@/components/ui/Icon";
 import type { InventoryItem } from "@/lib/types";
 import {
   formatPrice,
+  formatQty,
   needToBuy,
   shopAmazonUrl,
   shopCostcoUrl,
   shopWalmartUrl,
 } from "@/lib/utils";
 
-function ShopMenu({ item }: { item: InventoryItem }) {
-  const [open, setOpen] = useState(false);
-  const links = [
-    { label: "Amazon", href: shopAmazonUrl(item) },
-    { label: "Costco", href: shopCostcoUrl(item.name) },
-    { label: "Walmart", href: shopWalmartUrl(item.name) },
-  ];
+const OTHER = "Other";
+const COLLAPSED_LIMIT = 6;
 
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className="min-h-tap rounded-xl bg-surface-2 px-3.5 py-2.5 text-sm font-semibold text-ink ring-1 ring-surface-3 pressable focus-ring"
-      >
-        Shop ▾
-      </button>
-      {open ? (
-        <>
-          <button
-            type="button"
-            aria-label="Close shop menu"
-            className="fixed inset-0 z-40 cursor-default"
-            onClick={() => setOpen(false)}
-          />
-          <div className="absolute left-0 z-50 mt-1 min-w-[10rem] overflow-hidden rounded-xl border border-surface-3 bg-surface shadow-lux-lg">
-            {links.map((l) => (
-              <a
-                key={l.label}
-                href={l.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setOpen(false)}
-                className="block px-4 py-3 text-sm font-medium text-ink hover:bg-surface-2"
-              >
-                {l.label}
-              </a>
-            ))}
-          </div>
-        </>
-      ) : null}
-    </div>
-  );
+function storeOf(item: InventoryItem) {
+  return item.lastVendor?.trim() || item.vendor?.trim() || OTHER;
 }
 
 export default function RestockPage() {
-  const { lowStockItems, markRestocked, logPurchase, getLastPurchase } =
-    useInventory();
+  const { lowStockItems, markRestocked, logPurchase, getLastPurchase } = useInventory();
   const [copied, setCopied] = useState(false);
+  const [store, setStore] = useState<string>("all");
   const [sheetItem, setSheetItem] = useState<InventoryItem | null>(null);
   const [sheetAlsoRestock, setSheetAlsoRestock] = useState(true);
-  const [payPromptItem, setPayPromptItem] = useState<InventoryItem | null>(
-    null
-  );
+  const [menuItem, setMenuItem] = useState<InventoryItem | null>(null);
+  const [payPromptItem, setPayPromptItem] = useState<InventoryItem | null>(null);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
-  const byVendor = useMemo(() => {
-    const map = new Map<string, typeof lowStockItems>();
+  const byStore = useMemo(() => {
+    const map = new Map<string, InventoryItem[]>();
     for (const item of lowStockItems) {
-      const key =
-        item.lastVendor?.trim() || item.vendor?.trim() || "No vendor";
-      const list = map.get(key) ?? [];
-      list.push(item);
-      map.set(key, list);
+      const key = storeOf(item);
+      map.set(key, [...(map.get(key) ?? []), item]);
     }
-    return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
+    for (const list of map.values()) list.sort((a, b) => a.name.localeCompare(b.name));
+    // Named stores first (by size), "Other" last
+    return [...map.entries()].sort(([a, al], [b, bl]) => {
+      if (a === OTHER) return 1;
+      if (b === OTHER) return -1;
+      return bl.length - al.length || a.localeCompare(b);
+    });
   }, [lowStockItems]);
 
+  const visible = store === "all" ? byStore : byStore.filter(([s]) => s === store);
   const total = lowStockItems.reduce((sum, i) => sum + (i.price ?? 0), 0);
+  const priced = lowStockItems.some((i) => i.price != null);
 
   const copyList = async () => {
     const lines: string[] = ["Restock list", ""];
-    for (const [vendor, items] of byVendor) {
+    for (const [vendor, items] of byStore) {
       lines.push(`## ${vendor}`);
       for (const item of items) {
         const need = needToBuy(item);
@@ -95,9 +68,7 @@ export default function RestockPage() {
         lines.push(
           `- ${item.name}: buy ${need} ${item.unit} (have ${item.quantity}, min ${item.minLevel})` +
             (item.price != null ? ` · ${formatPrice(item.price)}` : "") +
-            (last
-              ? ` · last ${formatPrice(last.pricePaid)}${last.vendor ? ` @ ${last.vendor}` : ""}`
-              : "")
+            (last ? ` · last ${formatPrice(last.pricePaid)}${last.vendor ? ` @ ${last.vendor}` : ""}` : "")
         );
       }
       lines.push("");
@@ -111,162 +82,190 @@ export default function RestockPage() {
     }
   };
 
-  const onMarkRestocked = (item: InventoryItem) => {
-    markRestocked(item.id);
-    setPayPromptItem(item);
-  };
-
   return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="font-display text-2xl font-semibold text-ink">Restock list</h1>
-          <p className="text-sm text-ink-muted">
-            Low-stock items with need-to-buy qty
-            {lowStockItems.some((i) => i.price != null)
-              ? ` · ~${formatPrice(total)} listed`
-              : ""}
-          </p>
-        </div>
-        <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+    <Page
+      title="Restock"
+      subtitle={
+        lowStockItems.length
+          ? `${lowStockItems.length} items to buy${priced ? ` · about ${formatPrice(total)}` : ""}`
+          : "Everything is stocked"
+      }
+      actions={
+        <>
           <Link
             href="/receipt"
-            className="min-h-tap rounded-xl bg-accent px-3 py-2.5 text-center text-sm font-semibold text-white pressable focus-ring"
+            aria-label="Scan receipt"
+            className="pressable focus-ring flex h-11 w-11 items-center justify-center rounded-full text-tint"
           >
-            Scan receipt
+            <Icon name="receipt" size={23} strokeWidth={1.9} />
           </Link>
           {lowStockItems.length > 0 ? (
-            <button
-              type="button"
-              onClick={() => void copyList()}
-              className="min-h-tap rounded-xl bg-surface-2 px-3 py-2.5 text-sm font-semibold text-ink ring-1 ring-surface-3 pressable focus-ring"
-            >
-              {copied ? "Copied!" : "Copy list"}
-            </button>
+            <IconButton label={copied ? "Copied" : "Copy list"} onClick={() => void copyList()}>
+              {copied ? (
+                <Icon name="checkmark" size={22} strokeWidth={2.2} />
+              ) : (
+                <Icon name="square.and.arrow.up" size={23} strokeWidth={1.9} />
+              )}
+            </IconButton>
           ) : null}
+        </>
+      }
+    >
+      {byStore.length > 1 ? (
+        <div className="mb-4">
+          <ChipBar
+            value={store}
+            onChange={setStore}
+            ariaLabel="Filter by store"
+            options={[
+              { value: "all", label: "All", count: lowStockItems.length },
+              ...byStore.map(([s, items]) => ({ value: s, label: s, count: items.length })),
+            ]}
+          />
         </div>
-      </div>
+      ) : null}
 
-      {byVendor.map(([vendor, items]) => (
-        <section key={vendor} className="card-lux p-4">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-muted">
-            {vendor}
-          </h2>
-          <ul className="divide-y divide-surface-3">
-            {items.map((item) => {
-              const need = needToBuy(item);
-              const last = getLastPurchase(item.id);
-              return (
-                <li key={item.id} className="flex gap-3 py-4 first:pt-0 last:pb-0">
-                  <Link
-                    href={`/items/edit/?id=${encodeURIComponent(item.id)}`}
-                    className="shrink-0 focus-ring rounded-xl"
-                  >
-                    <ItemImage
-                      item={item}
-                      aspect="aspect-square"
-                      className="h-14 w-14 rounded-xl shadow-soft"
-                    />
-                  </Link>
-                  <div className="min-w-0 flex-1">
-                    <Link
-                      href={`/items/edit/?id=${encodeURIComponent(item.id)}`}
-                      className="block font-semibold text-ink hover:text-accent"
+      <div className="space-y-6">
+        {visible.map(([vendor, items]) => {
+          const collapsible = store === "all" && items.length > COLLAPSED_LIMIT;
+          const open = !collapsible || expanded[vendor];
+          const shown = open ? items : items.slice(0, COLLAPSED_LIMIT);
+          return (
+            <section key={vendor}>
+              <div className="flex items-end justify-between px-4 pb-1.5">
+                <h2 className="text-footnote font-semibold text-label-2">
+                  {vendor === OTHER ? "No Store Set" : vendor}
+                </h2>
+                <span className="text-footnote tabular-nums text-label-2">{items.length}</span>
+              </div>
+              <ul className="ios-group overflow-hidden rounded-card bg-bg-grouped-2">
+                {shown.map((item) => {
+                  const need = needToBuy(item);
+                  const last = getLastPurchase(item.id);
+                  return (
+                    <li key={item.id} className="ios-row flex items-center">
+                      <Link
+                        href={itemHref(item.id)}
+                        className="pressable focus-ring shrink-0 py-2.5 pl-4"
+                        aria-label={`${item.name} details`}
+                      >
+                        <ItemImage item={item} className="h-16 w-16" rounded="rounded-[10px]" symbolSize={28} />
+                      </Link>
+                      <div className="ios-row-inner ml-3 flex min-h-[84px] min-w-0 flex-1 items-center gap-1 py-2.5 pr-2">
+                        <Link href={itemHref(item.id)} className="focus-ring min-w-0 flex-1 rounded">
+                          <p className="line-clamp-2 text-headline text-label">{item.name.replace(/\//g, "/\u200b")}</p>
+                          <p className="mt-0.5 text-subhead tabular-nums text-label-2">
+                            Need {formatQty(need)}
+                            {item.price != null ? ` · ${formatPrice(item.price)}` : ""}
+                          </p>
+                          {last ? (
+                            <p className="mt-0.5 truncate text-footnote text-label-2">
+                              Last paid {formatPrice(last.pricePaid)}
+                              {last.vendor ? ` at ${last.vendor}` : ""}
+                            </p>
+                          ) : null}
+                        </Link>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => {
+                            setSheetAlsoRestock(true);
+                            setSheetItem(item);
+                          }}
+                          aria-label={`Bought ${item.name}`}
+                        >
+                          Bought
+                        </Button>
+                        <IconButton label={`More actions for ${item.name}`} onClick={() => setMenuItem(item)}>
+                          <Icon name="ellipsis" size={22} />
+                        </IconButton>
+                      </div>
+                    </li>
+                  );
+                })}
+                {collapsible ? (
+                  <li className="ios-row">
+                    <button
+                      type="button"
+                      onClick={() => setExpanded((e) => ({ ...e, [vendor]: !open }))}
+                      className="pressable focus-ring flex w-full"
                     >
-                      {item.name}
-                    </Link>
-
-                    <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm sm:grid-cols-4">
-                      <div>
-                        <dt className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">
-                          Have
-                        </dt>
-                        <dd className="font-semibold tabular-nums text-ink">
-                          {item.quantity} {item.unit}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">
-                          Min
-                        </dt>
-                        <dd className="font-semibold tabular-nums text-ink">
-                          {item.minLevel ?? "—"}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">
-                          Need
-                        </dt>
-                        <dd className="font-semibold tabular-nums text-warn">
-                          {need} {item.unit}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">
-                          Price
-                        </dt>
-                        <dd className="font-semibold tabular-nums text-ink">
-                          {item.price != null ? formatPrice(item.price) : "—"}
-                        </dd>
-                      </div>
-                    </dl>
-
-                    {last ? (
-                      <p className="mt-1.5 text-xs text-ink-muted">
-                        Last paid {formatPrice(last.pricePaid)}
-                        {last.vendor ? ` at ${last.vendor}` : ""}
-                        {last.unitPricePaid != null
-                          ? ` · ${formatPrice(last.unitPricePaid)}/${last.unit}`
-                          : ""}
-                      </p>
-                    ) : null}
-
-                    {item.notes ? (
-                      <p className="mt-1 line-clamp-2 text-xs text-ink-muted">{item.notes}</p>
-                    ) : null}
-
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSheetAlsoRestock(true);
-                          setSheetItem(item);
-                        }}
-                        className="min-h-tap rounded-xl bg-accent px-3.5 py-2.5 text-sm font-semibold text-white pressable focus-ring"
-                      >
-                        Log purchase
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onMarkRestocked(item)}
-                        className="min-h-tap rounded-xl bg-accent-soft px-3.5 py-2.5 text-sm font-semibold text-accent ring-1 ring-accent/25 pressable focus-ring"
-                      >
-                        Mark restocked
-                      </button>
-                      <ShopMenu item={item} />
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      ))}
+                      <span className="ios-row-inner ml-4 flex min-h-tap flex-1 items-center justify-between pr-4 text-body text-tint">
+                        {open ? "Show Less" : `Show All ${items.length}`}
+                        <span className={`transition-transform ${open ? "rotate-180" : ""}`}>
+                          <Icon name="chevron.down" size={18} strokeWidth={2.2} />
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                ) : null}
+              </ul>
+            </section>
+          );
+        })}
+      </div>
 
       {lowStockItems.length === 0 ? (
         <EmptyState
-          title="Restock list is empty"
-          description="Nothing is below min level right now."
+          icon="checkmark.circle"
+          title="All Stocked Up"
+          description="Nothing is below its minimum right now."
           action={
-            <Link
-              href="/receipt"
-              className="inline-block rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white pressable"
-            >
-              Scan a receipt
-            </Link>
+            <ButtonLink href="/receipt" variant="secondary">
+              Scan a Receipt
+            </ButtonLink>
           }
         />
       ) : null}
+
+      <ActionSheet
+        open={Boolean(menuItem)}
+        onClose={() => setMenuItem(null)}
+        title={menuItem?.name}
+        actions={
+          menuItem
+            ? [
+                {
+                  label: "Log Purchase…",
+                  onSelect: () => {
+                    setSheetAlsoRestock(true);
+                    setSheetItem(menuItem);
+                  },
+                },
+                {
+                  label: "Mark Restocked",
+                  onSelect: () => {
+                    markRestocked(menuItem.id);
+                    setPayPromptItem(menuItem);
+                  },
+                },
+                { label: "Shop on Amazon", href: shopAmazonUrl(menuItem), external: true, onSelect: () => {} },
+                { label: "Shop at Costco", href: shopCostcoUrl(menuItem.name), external: true, onSelect: () => {} },
+                { label: "Shop at Walmart", href: shopWalmartUrl(menuItem.name), external: true, onSelect: () => {} },
+              ]
+            : []
+        }
+      />
+
+      <ActionSheet
+        open={Boolean(payPromptItem)}
+        onClose={() => setPayPromptItem(null)}
+        title={payPromptItem ? `${payPromptItem.name} restocked` : undefined}
+        message="Log what you paid to track price changes over time."
+        actions={
+          payPromptItem
+            ? [
+                {
+                  label: "Log Price…",
+                  onSelect: () => {
+                    setSheetAlsoRestock(false);
+                    setSheetItem(payPromptItem);
+                  },
+                },
+              ]
+            : []
+        }
+      />
 
       {sheetItem ? (
         <LogPurchaseSheet
@@ -285,43 +284,6 @@ export default function RestockPage() {
           }}
         />
       ) : null}
-
-      {payPromptItem ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-          <button
-            type="button"
-            aria-label="Dismiss"
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setPayPromptItem(null)}
-          />
-          <div className="relative z-10 w-full max-w-sm rounded-t-2xl bg-surface p-4 shadow-soft sm:rounded-2xl">
-            <h3 className="font-semibold text-ink">What&apos;d you pay?</h3>
-            <p className="mt-1 text-sm text-ink-muted">
-              Optional — log price for {payPromptItem.name} (inflation tracking).
-            </p>
-            <div className="mt-4 flex gap-2">
-              <button
-                type="button"
-                onClick={() => setPayPromptItem(null)}
-                className="min-h-tap flex-1 rounded-xl bg-surface-2 px-3 py-3 text-sm font-semibold text-ink"
-              >
-                Skip
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSheetAlsoRestock(false);
-                  setSheetItem(payPromptItem);
-                  setPayPromptItem(null);
-                }}
-                className="min-h-tap flex-1 rounded-xl bg-accent px-3 py-3 text-sm font-semibold text-white"
-              >
-                Log price
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-    </div>
+    </Page>
   );
 }

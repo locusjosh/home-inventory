@@ -2,59 +2,68 @@
 
 import { useState } from "react";
 import type { InventoryItem } from "@/lib/types";
-import {
-  assetPath,
-  folderGlyph,
-  folderGradient,
-  itemMonogram,
-} from "@/lib/assets";
+import { HUES, assetPath, itemSymbol } from "@/lib/assets";
+import { Icon } from "./ui/Icon";
 
 type Props = {
   item: Pick<InventoryItem, "name" | "folder" | "image">;
   className?: string;
+  /** Tailwind aspect class; defaults to square */
   aspect?: string;
-  sizes?: string;
-  priority?: boolean;
+  /** Glyph size for the symbol fallback */
+  symbolSize?: number;
+  /** Packshots are on white: keep a white plate in dark mode too */
+  rounded?: string;
 };
 
+/**
+ * Product photo on a white plate (packshots are shot on white), or — when no
+ * verified photo exists — a neutral tinted tile with an SF-style symbol.
+ * Never emoji, never initials.
+ */
 export function ItemImage({
   item,
   className = "",
   aspect = "aspect-square",
+  symbolSize,
+  rounded = "rounded-[12px]",
 }: Props) {
   const [failed, setFailed] = useState(false);
   const src = item.image ? assetPath(item.image) : "";
   const showImg = Boolean(src) && !failed;
 
-  return (
-    <div
-      className={`relative overflow-hidden bg-surface-3 ${aspect} ${className}`}
-    >
-      {showImg ? (
-        // eslint-disable-next-line @next/next/no-img-element
+  if (showImg) {
+    return (
+      <div className={`relative overflow-hidden bg-white ${aspect} ${rounded} ${className}`}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={src}
-          alt=""
+          alt={item.name}
           loading="lazy"
           decoding="async"
           onError={() => setFailed(true)}
-          className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+          className="h-full w-full object-contain"
         />
-      ) : (
-        <div
-          className={`flex h-full w-full flex-col items-center justify-center gap-1 bg-gradient-to-br ${folderGradient(item.folder)}`}
-          aria-hidden
-        >
-          <span className="text-2xl drop-shadow-md sm:text-3xl" role="img">
-            {folderGlyph(item.folder)}
-          </span>
-          <span className="font-display text-xl font-bold tracking-wide text-white drop-shadow-md sm:text-2xl">
-            {itemMonogram(item.name)}
-          </span>
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.28),transparent_55%)]" />
-          <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-black/15" />
-        </div>
-      )}
+      </div>
+    );
+  }
+
+  const sym = itemSymbol(item.name);
+  const hue = HUES[sym.hue];
+  return (
+    <div
+      className={`sym-tile relative flex items-center justify-center overflow-hidden ${aspect} ${rounded} ${className}`}
+      style={
+        {
+          background: hue.bg,
+          "--sym-fg": hue.fg,
+          "--sym-fg-dark": hue.fgDark,
+        } as React.CSSProperties
+      }
+      role="img"
+      aria-label={item.name}
+    >
+      <Icon name={sym.icon} size={symbolSize ?? 40} strokeWidth={1.6} />
     </div>
   );
 }

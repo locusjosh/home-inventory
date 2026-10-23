@@ -3,16 +3,23 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useInventory } from "@/context/InventoryContext";
-import { ItemCard } from "@/components/ItemCard";
-import { SearchInput } from "@/components/SearchInput";
-import { MoveFolderModal } from "@/components/MoveFolderModal";
+import { ItemImage } from "@/components/ItemImage";
 import { EmptyState } from "@/components/EmptyState";
+import { itemHref } from "@/components/ItemCard";
+import { Page } from "@/components/ui/Page";
+import { SearchField } from "@/components/ui/Controls";
+import { ActionSheet } from "@/components/ui/Sheet";
+import { Button, IconButton } from "@/components/ui/Button";
+import { Icon } from "@/components/ui/Icon";
+import { STOCK_FOLDERS, type InventoryItem } from "@/lib/types";
 
 export default function IdeasPage() {
-  const { ideaItems, moveToFolder, archiveItem, deleteItem, updateQuantity } =
-    useInventory();
+  const { ideaItems, moveToFolder, archiveItem, deleteItem } = useInventory();
   const [query, setQuery] = useState("");
-  const [moveId, setMoveId] = useState<string | null>(null);
+  const [adding, setAdding] = useState<InventoryItem | null>(null);
+  const [menu, setMenu] = useState<InventoryItem | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<InventoryItem | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     let list = [...ideaItems].sort((a, b) => a.name.localeCompare(b.name));
@@ -28,80 +35,120 @@ export default function IdeasPage() {
     return list;
   }, [ideaItems, query]);
 
-  const moving = ideaItems.find((i) => i.id === moveId);
+  const flash = (msg: string) => {
+    setToast(msg);
+    window.setTimeout(() => setToast(null), 2200);
+  };
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="font-display text-2xl font-semibold text-ink">Ideas</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          Wishlist ideas from Sortly — not part of your stock until you move them.
-        </p>
-      </div>
+    <Page
+      title="Ideas"
+      subtitle="Saved ideas — not in stock until you add them."
+      back={{ href: "/more", label: "More" }}
+    >
+      {toast ? (
+        <div
+          role="status"
+          className="animate-fade-in fixed left-1/2 top-[calc(env(safe-area-inset-top)+52px)] z-[55] -translate-x-1/2 rounded-full bg-black/80 px-4 py-2.5 text-footnote font-semibold text-white backdrop-blur"
+        >
+          {toast}
+        </div>
+      ) : null}
 
-      <SearchInput value={query} onChange={setQuery} placeholder="Search ideas…" />
+      <SearchField value={query} onChange={setQuery} placeholder="Search ideas" />
 
-      <div className="flex items-baseline justify-between">
-        <p className="text-sm text-ink-muted">
-          {filtered.length} idea{filtered.length === 1 ? "" : "s"}
-          {query.trim() ? " shown" : ""}
-        </p>
-        <Link href="/" className="text-sm font-medium text-accent">
-          ← My stock
-        </Link>
-      </div>
+      {filtered.length ? (
+        <>
+          <p className="px-4 pb-1.5 pt-5 text-footnote font-semibold text-label-2">
+            {filtered.length} {filtered.length === 1 ? "idea" : "ideas"}
+          </p>
+          <ul className="ios-group overflow-hidden rounded-card bg-bg-grouped-2">
+            {filtered.map((item) => (
+              <li key={item.id} className="ios-row flex items-center">
+                <Link href={itemHref(item.id)} className="pressable shrink-0 py-2 pl-4" aria-label={`${item.name} details`}>
+                  <ItemImage item={item} className="h-11 w-11" rounded="rounded-[10px]" symbolSize={22} />
+                </Link>
+                <div className="ios-row-inner ml-3 flex min-h-[60px] min-w-0 flex-1 items-center gap-1 pr-2">
+                  <Link href={itemHref(item.id)} className="focus-ring flex min-h-tap min-w-0 flex-1 flex-col justify-center rounded py-1">
+                    <p className="truncate text-body text-label">{item.name}</p>
+                    {item.vendor || item.notes ? (
+                      <p className="truncate text-subhead text-label-2">{item.vendor || item.notes}</p>
+                    ) : null}
+                  </Link>
+                  <Button variant="secondary" size="sm" onClick={() => setAdding(item)} aria-label={`Add ${item.name} to stock`}>
+                    Add
+                  </Button>
+                  <IconButton label={`More actions for ${item.name}`} onClick={() => setMenu(item)}>
+                    <Icon name="ellipsis" size={22} />
+                  </IconButton>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <EmptyState
+          icon="lightbulb"
+          title={ideaItems.length === 0 ? "No Ideas Left" : "No Results"}
+          description={ideaItems.length === 0 ? "Everything you saved is now in stock or archived." : "Try a different search."}
+        />
+      )}
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {filtered.map((item) => (
-          <div key={item.id} className="space-y-2">
-            <ItemCard
-              item={item}
-              onQuantity={updateQuantity}
-              showMove
-              onMove={setMoveId}
-              variant="grid"
-            />
-            <div className="flex gap-2 px-1">
-              <button
-                type="button"
-                onClick={() => {
-                  if (confirm(`Archive “${item.name}”?`)) archiveItem(item.id);
-                }}
-                className="min-h-tap flex-1 rounded-xl bg-surface-2 px-3 py-2.5 text-sm font-semibold text-ink-muted ring-1 ring-surface-3 hover:text-ink pressable focus-ring"
-              >
-                Archive
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (confirm(`Delete “${item.name}” permanently?`)) deleteItem(item.id);
-                }}
-                className="min-h-tap rounded-xl bg-surface-2 px-3 py-2.5 text-sm font-semibold text-danger ring-1 ring-danger/25 hover:bg-danger/10 pressable focus-ring"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        ))}
-        {filtered.length === 0 ? (
-          <div className="col-span-full">
-            <EmptyState
-              title={ideaItems.length === 0 ? "No wishlist ideas left" : "No ideas match"}
-              description={ideaItems.length === 0 ? "Your ideas list is clear." : "Try a different search."}
-            />
-          </div>
-        ) : null}
-      </div>
-
-      <MoveFolderModal
-        open={Boolean(moveId)}
-        itemName={moving?.name}
-        onClose={() => setMoveId(null)}
-        onPick={(f) => {
-          if (moveId) moveToFolder(moveId, f);
-          setMoveId(null);
-        }}
+      <ActionSheet
+        open={Boolean(adding)}
+        onClose={() => setAdding(null)}
+        title={adding ? `Add ${adding.name} to…` : undefined}
+        actions={STOCK_FOLDERS.map((f) => ({
+          label: f,
+          onSelect: () => {
+            if (adding) {
+              moveToFolder(adding.id, f);
+              flash(`Added to ${f}`);
+            }
+          },
+        }))}
       />
-    </div>
+
+      <ActionSheet
+        open={Boolean(menu)}
+        onClose={() => setMenu(null)}
+        title={menu?.name}
+        actions={
+          menu
+            ? [
+                {
+                  label: "Archive",
+                  onSelect: () => {
+                    archiveItem(menu.id);
+                    flash("Archived");
+                  },
+                },
+                { label: "Delete…", destructive: true, onSelect: () => setConfirmDelete(menu) },
+              ]
+            : []
+        }
+      />
+
+      <ActionSheet
+        open={Boolean(confirmDelete)}
+        onClose={() => setConfirmDelete(null)}
+        title={confirmDelete ? `Delete “${confirmDelete.name}”?` : undefined}
+        message="This can’t be undone."
+        actions={
+          confirmDelete
+            ? [
+                {
+                  label: "Delete Idea",
+                  destructive: true,
+                  onSelect: () => {
+                    deleteItem(confirmDelete.id);
+                    flash("Deleted");
+                  },
+                },
+              ]
+            : []
+        }
+      />
+    </Page>
   );
 }

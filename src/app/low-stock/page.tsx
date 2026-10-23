@@ -2,36 +2,46 @@
 
 import Link from "next/link";
 import { useInventory } from "@/context/InventoryContext";
-import { ItemCard } from "@/components/ItemCard";
+import { ItemImage } from "@/components/ItemImage";
 import { EmptyState } from "@/components/EmptyState";
+import { itemHref } from "@/components/ItemCard";
+import { Page } from "@/components/ui/Page";
+import { ListRow, ListSection } from "@/components/ui/List";
+import { formatQty, needToBuy } from "@/lib/utils";
 
 export default function LowStockPage() {
-  const { lowStockItems, updateQuantity } = useInventory();
+  const { lowStockItems } = useInventory();
+  const sorted = [...lowStockItems].sort((a, b) => a.name.localeCompare(b.name));
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="font-display text-2xl font-semibold text-ink">Low stock</h1>
-          <p className="text-sm text-ink-muted">
-            Quantity below min level ({lowStockItems.length})
-          </p>
-        </div>
-        <Link
-          href="/restock"
-          className="rounded-xl bg-warn px-3 py-2 text-sm font-medium text-white"
-        >
-          Restock list
-        </Link>
-      </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {lowStockItems.map((item) => (
-          <ItemCard key={item.id} item={item} onQuantity={updateQuantity} variant="grid" />
-        ))}
-      </div>
-      {lowStockItems.length === 0 ? (
-        <EmptyState title="Nothing is low right now" description="Stock levels look healthy." />
-      ) : null}
-    </div>
+    <Page
+      title="Low Stock"
+      subtitle={`${lowStockItems.length} below their minimum`}
+      back={{ href: "/more", label: "More" }}
+      actions={
+        lowStockItems.length ? (
+          <Link href="/restock" className="pressable focus-ring flex min-h-tap items-center px-2 text-body text-tint">
+            Restock
+          </Link>
+        ) : null
+      }
+    >
+      {sorted.length ? (
+        <ListSection>
+          {sorted.map((item) => (
+            <ListRow
+              key={item.id}
+              href={itemHref(item.id)}
+              leading={<ItemImage item={item} className="h-12 w-12" rounded="rounded-[8px]" symbolSize={22} />}
+              title={item.name}
+              subtitle={`Have ${formatQty(item.quantity)} · keep ${item.minLevel ?? 0} · buy ${formatQty(needToBuy(item))}`}
+              chevron
+            />
+          ))}
+        </ListSection>
+      ) : (
+        <EmptyState icon="checkmark.circle" title="Nothing Is Low" description="Stock levels look healthy." />
+      )}
+    </Page>
   );
 }

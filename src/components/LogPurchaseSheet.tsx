@@ -3,6 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import type { InventoryItem, Purchase } from "@/lib/types";
 import { formatPrice, needToBuy } from "@/lib/utils";
+import { Sheet } from "./ui/Sheet";
+import { Button } from "./ui/Button";
+import { FieldRow, TextInput } from "./ui/Form";
+import { ItemImage } from "./ItemImage";
 
 type LogPurchaseSheetProps = {
   item: InventoryItem;
@@ -18,7 +22,6 @@ type LogPurchaseSheetProps = {
     promoNotes?: string | null;
     vendor?: string | null;
   }) => void;
-  /** Optional title override */
   title?: string;
 };
 
@@ -28,15 +31,12 @@ export function LogPurchaseSheet({
   open,
   onClose,
   onSave,
-  title = "Log purchase",
+  title = "Log Purchase",
 }: LogPurchaseSheetProps) {
   const priceRef = useRef<HTMLInputElement>(null);
-  const need = Math.max(1, needToBuy(item) || 1);
-  const [qty, setQty] = useState(String(need));
+  const [qty, setQty] = useState(String(Math.max(1, needToBuy(item) || 1)));
   const [pricePaid, setPricePaid] = useState("");
-  const [vendor, setVendor] = useState(
-    item.lastVendor || item.vendor || ""
-  );
+  const [vendor, setVendor] = useState(item.lastVendor || item.vendor || "");
   const [expanded, setExpanded] = useState(false);
   const [listPrice, setListPrice] = useState("");
   const [discountPercent, setDiscountPercent] = useState("");
@@ -45,8 +45,7 @@ export function LogPurchaseSheet({
 
   useEffect(() => {
     if (!open) return;
-    const n = Math.max(1, needToBuy(item) || 1);
-    setQty(String(n));
+    setQty(String(Math.max(1, needToBuy(item) || 1)));
     setPricePaid("");
     setVendor(item.lastVendor || item.vendor || "");
     setExpanded(false);
@@ -54,88 +53,68 @@ export function LogPurchaseSheet({
     setDiscountPercent("");
     setDiscountAmount("");
     setPromoNotes("");
-    // Focus price for numeric keypad
-    const t = window.setTimeout(() => priceRef.current?.focus(), 50);
+    const t = window.setTimeout(() => priceRef.current?.focus(), 80);
     return () => window.clearTimeout(t);
   }, [open, item]);
 
-  if (!open) return null;
+  const paidValid = pricePaid !== "" && Number.isFinite(Number(pricePaid)) && Number(pricePaid) >= 0;
 
   const submit = (e?: React.FormEvent) => {
     e?.preventDefault();
-    const paid = Number(pricePaid);
-    if (!Number.isFinite(paid) || paid < 0) {
+    if (!paidValid) {
       priceRef.current?.focus();
       return;
     }
     const q = Number(qty);
     onSave({
       qty: Number.isFinite(q) && q > 0 ? q : 1,
-      pricePaid: paid,
+      pricePaid: Number(pricePaid),
       listPrice: listPrice === "" ? null : Number(listPrice),
-      discountPercent:
-        discountPercent === "" ? null : Number(discountPercent),
+      discountPercent: discountPercent === "" ? null : Number(discountPercent),
       discountAmount: discountAmount === "" ? null : Number(discountAmount),
       promoNotes: promoNotes.trim() || null,
       vendor: vendor.trim() || null,
     });
   };
 
+  const reference = lastPurchase
+    ? `Last paid ${formatPrice(lastPurchase.pricePaid)}${lastPurchase.vendor ? ` at ${lastPurchase.vendor}` : ""}${
+        lastPurchase.unitPricePaid != null ? ` · ${formatPrice(lastPurchase.unitPricePaid)}/${lastPurchase.unit}` : ""
+      }`
+    : item.price != null
+      ? `Listed at ${formatPrice(item.price)}`
+      : "No price history yet";
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-      <button
-        type="button"
-        aria-label="Close"
-        className="absolute inset-0 bg-black/50"
-        onClick={onClose}
-      />
-      <div className="relative z-10 w-full max-w-md rounded-t-2xl bg-surface p-4 shadow-soft sm:rounded-2xl">
-        <div className="mb-3 flex items-start justify-between gap-2">
-          <div>
-            <h2 className="text-lg font-semibold text-ink">{title}</h2>
-            <p className="text-sm text-ink-muted">{item.name}</p>
-            {lastPurchase ? (
-              <p className="mt-0.5 text-xs text-ink-muted">
-                Last: {formatPrice(lastPurchase.pricePaid)}
-                {lastPurchase.vendor ? ` at ${lastPurchase.vendor}` : ""}
-                {lastPurchase.unitPricePaid != null
-                  ? ` · ${formatPrice(lastPurchase.unitPricePaid)}/${lastPurchase.unit}`
-                  : ""}
-              </p>
-            ) : item.price != null ? (
-              <p className="mt-0.5 text-xs text-ink-muted">
-                Listed: {formatPrice(item.price)}
-              </p>
-            ) : null}
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title={title}
+      leading={
+        <Button variant="plain" onClick={onClose}>
+          Cancel
+        </Button>
+      }
+      trailing={
+        <Button variant="plain" onClick={() => submit()} disabled={!paidValid} className="font-semibold">
+          Save
+        </Button>
+      }
+    >
+      <form onSubmit={submit} className="space-y-6 pt-2">
+        <div className="flex items-center gap-3 px-1">
+          <ItemImage item={item} className="h-14 w-14" rounded="rounded-[10px]" symbolSize={26} />
+          <div className="min-w-0">
+            <p className="truncate text-headline text-label">{item.name}</p>
+            <p className="text-subhead text-label-2">{reference}</p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg px-2 py-1 text-sm text-ink-muted"
-          >
-            Close
-          </button>
         </div>
 
-        <form onSubmit={submit} className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block space-y-1">
-              <span className="text-xs font-medium text-ink-muted">Qty</span>
-              <input
-                type="number"
-                inputMode="decimal"
-                min={0.01}
-                step="any"
-                value={qty}
-                onChange={(e) => setQty(e.target.value)}
-                className="w-full rounded-xl border border-surface-3 bg-surface-2 px-3 py-3 text-ink outline-none focus:border-accent"
-              />
-            </label>
-            <label className="block space-y-1">
-              <span className="text-xs font-medium text-ink-muted">
-                Price paid ($)
-              </span>
-              <input
+        <div className="ios-group overflow-hidden rounded-card bg-bg-grouped-2">
+          <FieldRow label="Price Paid">
+            <span className="flex items-center text-body text-label-2">
+              $
+              <TextInput
                 ref={priceRef}
                 type="number"
                 inputMode="decimal"
@@ -144,90 +123,54 @@ export function LogPurchaseSheet({
                 value={pricePaid}
                 onChange={(e) => setPricePaid(e.target.value)}
                 placeholder="0.00"
-                className="w-full rounded-xl border border-surface-3 bg-surface-2 px-3 py-3 text-lg font-semibold text-ink outline-none focus:border-accent"
+                className="w-28 font-semibold"
               />
-            </label>
-          </div>
-
-          <label className="block space-y-1">
-            <span className="text-xs font-medium text-ink-muted">Vendor</span>
-            <input
-              value={vendor}
-              onChange={(e) => setVendor(e.target.value)}
-              placeholder="Costco, Amazon…"
-              className="w-full rounded-xl border border-surface-3 bg-surface-2 px-3 py-3 text-ink outline-none focus:border-accent"
+            </span>
+          </FieldRow>
+          <FieldRow label="Quantity">
+            <TextInput
+              type="number"
+              inputMode="decimal"
+              min={0.01}
+              step="any"
+              value={qty}
+              onChange={(e) => setQty(e.target.value)}
+              className="w-24"
             />
-          </label>
+          </FieldRow>
+          <FieldRow label="Store">
+            <TextInput value={vendor} onChange={(e) => setVendor(e.target.value)} placeholder="Costco, Amazon…" />
+          </FieldRow>
+        </div>
 
-          <button
-            type="button"
-            onClick={() => setExpanded((v) => !v)}
-            className="text-xs font-medium text-accent"
-          >
-            {expanded ? "Hide promo details" : "List price / promo (optional)"}
-          </button>
-
-          {expanded ? (
-            <div className="space-y-3 rounded-xl bg-surface-2 p-3">
-              <div className="grid grid-cols-2 gap-3">
-                <label className="block space-y-1">
-                  <span className="text-xs text-ink-muted">List / was ($)</span>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min={0}
-                    step="0.01"
-                    value={listPrice}
-                    onChange={(e) => setListPrice(e.target.value)}
-                    className="w-full rounded-xl border border-surface-3 bg-surface px-3 py-2 text-ink outline-none focus:border-accent"
-                  />
-                </label>
-                <label className="block space-y-1">
-                  <span className="text-xs text-ink-muted">% off</span>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min={0}
-                    max={100}
-                    step="any"
-                    value={discountPercent}
-                    onChange={(e) => setDiscountPercent(e.target.value)}
-                    className="w-full rounded-xl border border-surface-3 bg-surface px-3 py-2 text-ink outline-none focus:border-accent"
-                  />
-                </label>
-              </div>
-              <label className="block space-y-1">
-                <span className="text-xs text-ink-muted">$ off</span>
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  step="0.01"
-                  value={discountAmount}
-                  onChange={(e) => setDiscountAmount(e.target.value)}
-                  className="w-full rounded-xl border border-surface-3 bg-surface px-3 py-2 text-ink outline-none focus:border-accent"
-                />
-              </label>
-              <label className="block space-y-1">
-                <span className="text-xs text-ink-muted">Promo notes</span>
-                <input
-                  value={promoNotes}
-                  onChange={(e) => setPromoNotes(e.target.value)}
-                  placeholder='e.g. "buy 4 save 33%"'
-                  className="w-full rounded-xl border border-surface-3 bg-surface px-3 py-2 text-ink outline-none focus:border-accent"
-                />
-              </label>
+        {expanded ? (
+          <section>
+            <h3 className="px-4 pb-1.5 text-footnote font-semibold text-label-2">Deal Details</h3>
+            <div className="ios-group overflow-hidden rounded-card bg-bg-grouped-2">
+              <FieldRow label="Regular Price">
+                <TextInput type="number" inputMode="decimal" min={0} step="0.01" value={listPrice} onChange={(e) => setListPrice(e.target.value)} placeholder="Optional" />
+              </FieldRow>
+              <FieldRow label="Percent Off">
+                <TextInput type="number" inputMode="decimal" min={0} max={100} step="any" value={discountPercent} onChange={(e) => setDiscountPercent(e.target.value)} placeholder="Optional" />
+              </FieldRow>
+              <FieldRow label="Amount Off">
+                <TextInput type="number" inputMode="decimal" min={0} step="0.01" value={discountAmount} onChange={(e) => setDiscountAmount(e.target.value)} placeholder="Optional" />
+              </FieldRow>
+              <FieldRow label="Promo">
+                <TextInput value={promoNotes} onChange={(e) => setPromoNotes(e.target.value)} placeholder="Buy 4, save 33%" />
+              </FieldRow>
             </div>
-          ) : null}
+          </section>
+        ) : (
+          <Button variant="plain" block onClick={() => setExpanded(true)}>
+            Add Deal Details
+          </Button>
+        )}
 
-          <button
-            type="submit"
-            className="w-full rounded-xl bg-accent px-4 py-3.5 text-sm font-semibold text-white"
-          >
-            Save
-          </button>
-        </form>
-      </div>
-    </div>
+        <Button type="submit" variant="primary" size="lg" block disabled={!paidValid}>
+          Save Purchase
+        </Button>
+      </form>
+    </Sheet>
   );
 }

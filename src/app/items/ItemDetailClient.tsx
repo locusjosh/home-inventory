@@ -1,44 +1,50 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useInventory } from "@/context/InventoryContext";
 import { FOLDERS, type Attribute } from "@/lib/types";
-import { QuantityStepper } from "@/components/QuantityStepper";
 import { LogPurchaseSheet } from "@/components/LogPurchaseSheet";
-import { formatPrice } from "@/lib/utils";
 import { ItemImage } from "@/components/ItemImage";
+import { EmptyState } from "@/components/EmptyState";
+import { Page } from "@/components/ui/Page";
+import { ListRow, ListSection } from "@/components/ui/List";
+import { MiniStepper, StatusTag } from "@/components/ui/Controls";
+import { ActionSheet } from "@/components/ui/Sheet";
+import { Button, ButtonLink, IconButton } from "@/components/ui/Button";
+import { Icon } from "@/components/ui/Icon";
+import { FieldRow, SelectInput, TextArea, TextInput } from "@/components/ui/Form";
+import { formatPrice, formatQty, isLowStock, isSuggested, needsCount } from "@/lib/utils";
 
 export default function ItemDetailPage() {
   const searchParams = useSearchParams();
   const id = searchParams.get("id") ?? "";
   const router = useRouter();
-  const {
-    items,
-    updateItem,
-    updateQuantity,
-    archiveItem,
-    deleteItem,
-    logPurchase,
-    getPurchasesForItem,
-  } = useInventory();
+  const { items, updateItem, updateQuantity, archiveItem, deleteItem, logPurchase, getPurchasesForItem } =
+    useInventory();
   const item = items.find((i) => i.id === id);
 
   const [attrName, setAttrName] = useState("");
   const [attrOption, setAttrOption] = useState("");
   const [showPurchase, setShowPurchase] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const attrs = useMemo(() => item?.attributes ?? [], [item]);
 
   if (!item) {
     return (
-      <div className="rounded-2xl bg-surface p-8 text-center shadow-soft">
-        <p className="text-ink-muted">Item not found.</p>
-        <Link href="/" className="mt-3 inline-block text-accent">
-          Back to stock
-        </Link>
-      </div>
+      <Page title="Item" back={{ href: "/", label: "Back", useHistory: true }} hideLargeTitle>
+        <EmptyState
+          icon="magnifyingglass"
+          title="Item Not Found"
+          description="It may have been deleted."
+          action={
+            <ButtonLink href="/" variant="secondary">
+              Go to Stock
+            </ButtonLink>
+          }
+        />
+      </Page>
     );
   }
 
@@ -54,311 +60,238 @@ export default function ItemDetailPage() {
     setAttrOption("");
   };
 
-  const removeAttr = (idx: number) => {
-    updateItem(item.id, { attributes: attrs.filter((_, i) => i !== idx) });
-  };
+  const hist = getPurchasesForItem(item.id);
+  const low = isLowStock(item);
+  const needs = needsCount(item);
+  const idea = isSuggested(item);
 
   return (
-    <div className="mx-auto max-w-lg space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <Link href="/" className="text-sm font-medium text-accent">
-          ← Stock
-        </Link>
-        {item.archived ? (
-          <span className="rounded-full bg-surface-3 px-2 py-1 text-xs text-ink-muted">Archived</span>
-        ) : null}
-      </div>
-
-      <div className="card-lux overflow-hidden">
-        <ItemImage item={item} aspect="aspect-[4/3]" className="rounded-none" />
-        <div className="space-y-3 p-4">
-        <label className="block space-y-1">
-          <span className="text-sm font-medium text-ink">Name</span>
-          <input
-            value={item.name}
-            onChange={(e) => setField("name", e.target.value)}
-            className="w-full rounded-xl border border-surface-3 bg-surface-2 px-3 py-3 text-lg font-semibold text-ink outline-none focus:border-accent"
-          />
-        </label>
-
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-sm font-medium text-ink">Quantity</span>
-          <QuantityStepper
-            value={item.quantity}
-            onChange={(q) => updateQuantity(item.id, q)}
-            unit={item.unit}
-          />
+    <Page
+      title={item.name}
+      hideLargeTitle
+      back={{ href: idea ? "/ideas" : "/", label: idea ? "Ideas" : "Stock", useHistory: true }}
+      actions={
+        <IconButton label="Log purchase" onClick={() => setShowPurchase(true)}>
+          <Icon name="bag" size={23} strokeWidth={1.9} />
+        </IconButton>
+      }
+    >
+      <div className="space-y-6 pt-2">
+        <div className="overflow-hidden rounded-card bg-bg-grouped-2 p-3">
+          <ItemImage item={item} aspect="aspect-[4/3]" symbolSize={72} />
+          <div className="px-1 pb-1 pt-3">
+            <h1 className="text-title1 text-label">{item.name}</h1>
+            <div className="mt-1.5 flex flex-wrap items-center gap-3">
+              <span className="text-subhead text-label-2">{item.folder}</span>
+              {low ? <StatusTag tone="orange">Below minimum</StatusTag> : null}
+              {needs ? <StatusTag tone="blue">Needs a count</StatusTag> : null}
+              {item.archived ? <StatusTag tone="gray">Archived</StatusTag> : null}
+            </div>
+          </div>
         </div>
 
-        <label className="block space-y-1">
-          <span className="text-sm font-medium text-ink">Folder</span>
-          <select
-            value={item.folder}
-            onChange={(e) => setField("folder", e.target.value)}
-            className="w-full rounded-xl border border-surface-3 bg-surface-2 px-3 py-3 text-ink outline-none focus:border-accent"
-          >
-            {!FOLDERS.includes(item.folder as (typeof FOLDERS)[number]) ? (
-              <option value={item.folder}>{item.folder}</option>
-            ) : null}
-            {FOLDERS.map((f) => (
-              <option key={f} value={f}>
-                {f}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <div className="grid grid-cols-2 gap-3">
-          <label className="block space-y-1">
-            <span className="text-sm font-medium text-ink">Unit</span>
-            <input
-              value={item.unit}
-              onChange={(e) => setField("unit", e.target.value)}
-              className="w-full rounded-xl border border-surface-3 bg-surface-2 px-3 py-3 text-ink outline-none focus:border-accent"
-            />
-          </label>
-          <label className="block space-y-1">
-            <span className="text-sm font-medium text-ink">Min level</span>
-            <input
+        <div className="ios-group overflow-hidden rounded-card bg-bg-grouped-2">
+          <div className="ios-row flex items-center">
+            <div className="ios-row-inner ml-4 flex min-h-[56px] flex-1 items-center justify-between gap-3 py-1.5 pr-3">
+              <div>
+                <p className="text-body text-label">On Hand</p>
+                <p className="text-footnote text-label-2">{item.unit}</p>
+              </div>
+              <div className="w-40">
+                <MiniStepper value={item.quantity} label={item.name} onChange={(q) => updateQuantity(item.id, q)} />
+              </div>
+            </div>
+          </div>
+          <FieldRow label="Keep at Least">
+            <TextInput
               type="number"
               min={0}
               step="any"
+              inputMode="decimal"
               value={item.minLevel ?? ""}
-              onChange={(e) =>
-                setField("minLevel", e.target.value === "" ? null : Number(e.target.value))
-              }
-              className="w-full rounded-xl border border-surface-3 bg-surface-2 px-3 py-3 text-ink outline-none focus:border-accent"
+              placeholder="None"
+              onChange={(e) => setField("minLevel", e.target.value === "" ? null : Number(e.target.value))}
+              className="w-24"
             />
-          </label>
+          </FieldRow>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <label className="block space-y-1">
-            <span className="text-sm font-medium text-ink">Price</span>
-            <input
+        <ListSection header="Details">
+          <FieldRow label="Name">
+            <TextInput value={item.name} onChange={(e) => setField("name", e.target.value)} />
+          </FieldRow>
+          <FieldRow label="Room">
+            <SelectInput value={item.folder} onChange={(e) => setField("folder", e.target.value)}>
+              {!FOLDERS.includes(item.folder as (typeof FOLDERS)[number]) ? (
+                <option value={item.folder}>{item.folder}</option>
+              ) : null}
+              {FOLDERS.map((f) => (
+                <option key={f} value={f}>
+                  {f === "Suggested Items" ? "Ideas" : f}
+                </option>
+              ))}
+            </SelectInput>
+          </FieldRow>
+          <FieldRow label="Unit">
+            <TextInput value={item.unit} onChange={(e) => setField("unit", e.target.value)} />
+          </FieldRow>
+          <FieldRow label="Price">
+            <TextInput
               type="number"
               min={0}
               step="0.01"
+              inputMode="decimal"
               value={item.price ?? ""}
-              onChange={(e) =>
-                setField("price", e.target.value === "" ? null : Number(e.target.value))
-              }
-              className="w-full rounded-xl border border-surface-3 bg-surface-2 px-3 py-3 text-ink outline-none focus:border-accent"
+              placeholder="None"
+              onChange={(e) => setField("price", e.target.value === "" ? null : Number(e.target.value))}
             />
-          </label>
-          <label className="block space-y-1">
-            <span className="text-sm font-medium text-ink">Vendor</span>
-            <input
-              value={item.vendor ?? ""}
-              onChange={(e) => setField("vendor", e.target.value || null)}
-              className="w-full rounded-xl border border-surface-3 bg-surface-2 px-3 py-3 text-ink outline-none focus:border-accent"
+          </FieldRow>
+          <FieldRow label="Store">
+            <TextInput value={item.vendor ?? ""} placeholder="None" onChange={(e) => setField("vendor", e.target.value || null)} />
+          </FieldRow>
+          <FieldRow label="Notes" stacked>
+            <TextArea
+              value={item.notes ?? ""}
+              rows={3}
+              placeholder="Brand, size, deals…"
+              onChange={(e) => setField("notes", e.target.value || null)}
             />
-          </label>
-        </div>
+          </FieldRow>
+        </ListSection>
 
-        <label className="block space-y-1">
-          <span className="text-sm font-medium text-ink">Notes</span>
-          <textarea
-            value={item.notes ?? ""}
-            onChange={(e) => setField("notes", e.target.value || null)}
-            rows={3}
-            className="w-full rounded-xl border border-surface-3 bg-surface-2 px-3 py-3 text-ink outline-none focus:border-accent"
-          />
-        </label>
-
-
-        <div className="space-y-2 border-t border-surface-3 pt-3">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-sm font-medium text-ink">Purchase history</span>
-            <button
-              type="button"
-              onClick={() => setShowPurchase(true)}
-              className="rounded-lg bg-accent-soft px-2.5 py-1.5 text-xs font-semibold text-accent"
-            >
-              Log purchase
-            </button>
-          </div>
-          {(() => {
-            const hist = getPurchasesForItem(item.id);
-            if (!hist.length) {
-              return (
-                <p className="text-sm text-ink-muted">
-                  No purchases logged yet. Track price paid for inflation.
-                </p>
-              );
+        <ListSection
+          header="Purchase History"
+          footer={hist.length ? undefined : "Log what you paid to see price changes over time."}
+        >
+          {hist.slice(0, 12).map((p, idx) => {
+            const prev = hist[idx + 1];
+            let trend: { text: string; up: boolean } | null = null;
+            if (prev && prev.unitPricePaid != null && p.unitPricePaid != null && prev.unitPricePaid > 0) {
+              const pct = ((p.unitPricePaid - prev.unitPricePaid) / prev.unitPricePaid) * 100;
+              if (Math.abs(pct) >= 0.5) trend = { text: `${pct > 0 ? "↑" : "↓"} ${Math.abs(pct).toFixed(0)}%`, up: pct > 0 };
             }
+            const date = new Date(p.purchasedAt).toLocaleDateString(undefined, {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+            });
             return (
-              <ul className="space-y-2">
-                {hist.slice(0, 12).map((p, idx) => {
-                  const prev = hist[idx + 1];
-                  let trend: string | null = null;
-                  if (
-                    prev &&
-                    prev.unitPricePaid != null &&
-                    p.unitPricePaid != null &&
-                    prev.unitPricePaid > 0
-                  ) {
-                    const pct =
-                      ((p.unitPricePaid - prev.unitPricePaid) / prev.unitPricePaid) *
-                      100;
-                    if (Math.abs(pct) >= 0.5) {
-                      const arrow = pct > 0 ? "↑" : "↓";
-                      const color = pct > 0 ? "text-danger" : "text-emerald-600";
-                      trend = `${arrow} ${Math.abs(pct).toFixed(0)}%`;
-                      return (
-                        <li
-                          key={p.id}
-                          className="rounded-xl bg-surface-2 px-3 py-2 text-sm"
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <div className="font-medium text-ink">
-                                {formatPrice(p.pricePaid)}
-                                <span className="ml-1 font-normal text-ink-muted">
-                                  ({formatPrice(p.unitPricePaid)}/{p.unit} × {p.qty})
-                                </span>
-                              </div>
-                              <div className="text-xs text-ink-muted">
-                                {new Date(p.purchasedAt).toLocaleDateString(undefined, {
-                                  year: "numeric",
-                                  month: "short",
-                                  day: "numeric",
-                                })}
-                                {p.vendor ? ` · ${p.vendor}` : ""}
-                                {p.promoNotes ? ` · ${p.promoNotes}` : ""}
-                                {p.discountPercent != null
-                                  ? ` · ${p.discountPercent}% off`
-                                  : ""}
-                              </div>
-                            </div>
-                            <span className={`shrink-0 text-xs font-semibold ${color}`}>
-                              {trend}
-                            </span>
-                          </div>
-                        </li>
-                      );
-                    }
-                  }
-                  return (
-                    <li
-                      key={p.id}
-                      className="rounded-xl bg-surface-2 px-3 py-2 text-sm"
-                    >
-                      <div className="font-medium text-ink">
-                        {formatPrice(p.pricePaid)}
-                        <span className="ml-1 font-normal text-ink-muted">
-                          ({formatPrice(p.unitPricePaid)}/{p.unit} × {p.qty})
-                        </span>
-                      </div>
-                      <div className="text-xs text-ink-muted">
-                        {new Date(p.purchasedAt).toLocaleDateString(undefined, {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                        })}
-                        {p.vendor ? ` · ${p.vendor}` : ""}
-                        {p.promoNotes ? ` · ${p.promoNotes}` : ""}
-                        {p.discountPercent != null
-                          ? ` · ${p.discountPercent}% off`
-                          : ""}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
+              <ListRow
+                key={p.id}
+                title={
+                  <span>
+                    {formatPrice(p.pricePaid)}
+                    <span className="ml-1.5 text-subhead text-label-2">
+                      {formatPrice(p.unitPricePaid)}/{p.unit} × {formatQty(p.qty)}
+                    </span>
+                  </span>
+                }
+                subtitle={[
+                  date,
+                  p.vendor,
+                  p.promoNotes,
+                  p.discountPercent != null ? `${p.discountPercent}% off` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+                trailing={
+                  trend ? (
+                    <span className={`text-subhead font-semibold ${trend.up ? "text-sys-red-text" : "text-sys-green"}`}>
+                      {trend.text}
+                    </span>
+                  ) : null
+                }
+              />
             );
-          })()}
-        </div>
+          })}
+          <ListRow
+            onClick={() => setShowPurchase(true)}
+            leading={
+              <span className="text-tint">
+                <Icon name="plus" size={20} strokeWidth={2.4} />
+              </span>
+            }
+            title="Log Purchase"
+            tint
+          />
+        </ListSection>
 
-        <div className="space-y-2">
-          <span className="text-sm font-medium text-ink">Attributes</span>
-          <ul className="space-y-1">
-            {attrs.map((a, idx) => (
-              <li
-                key={`${a.name}-${idx}`}
-                className="flex items-center justify-between rounded-xl bg-surface-2 px-3 py-2 text-sm"
-              >
-                <span>
-                  <strong>{a.name}</strong>: {a.option}
-                </span>
-                <button
-                  type="button"
-                  className="text-danger"
-                  onClick={() => removeAttr(idx)}
+        <ListSection header="Attributes">
+          {attrs.map((a, idx) => (
+            <ListRow
+              key={`${a.name}-${idx}`}
+              title={a.name}
+              value={a.option}
+              trailing={
+                <IconButton
+                  label={`Remove ${a.name}`}
+                  tone="red"
+                  onClick={() => updateItem(item.id, { attributes: attrs.filter((_, i) => i !== idx) })}
+                  className="-mr-2"
                 >
-                  Remove
-                </button>
-              </li>
-            ))}
-          </ul>
-          <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
-            <input
-              placeholder="Name"
-              value={attrName}
-              onChange={(e) => setAttrName(e.target.value)}
-              className="rounded-xl border border-surface-3 bg-surface-2 px-3 py-2 text-sm outline-none focus:border-accent"
+                  <Icon name="minus" size={18} strokeWidth={2.6} />
+                </IconButton>
+              }
             />
-            <input
-              placeholder="Option"
-              value={attrOption}
-              onChange={(e) => setAttrOption(e.target.value)}
-              className="rounded-xl border border-surface-3 bg-surface-2 px-3 py-2 text-sm outline-none focus:border-accent"
-            />
-            <button
-              type="button"
-              onClick={addAttr}
-              className="rounded-xl bg-accent-soft px-3 py-2 text-sm font-medium text-accent"
-            >
-              Add
-            </button>
+          ))}
+          <div className="ios-row flex items-center">
+            <div className="ios-row-inner ml-4 flex min-h-tap flex-1 items-center gap-2 pr-2">
+              <input
+                placeholder="Name"
+                value={attrName}
+                onChange={(e) => setAttrName(e.target.value)}
+                aria-label="Attribute name"
+                className="min-h-tap min-w-0 flex-1 bg-transparent text-body text-label outline-none"
+              />
+              <input
+                placeholder="Value"
+                value={attrOption}
+                onChange={(e) => setAttrOption(e.target.value)}
+                aria-label="Attribute value"
+                className="min-h-tap min-w-0 flex-1 bg-transparent text-body text-label outline-none"
+              />
+              <Button variant="plain" onClick={addAttr} disabled={!attrName.trim()}>
+                Add
+              </Button>
+            </div>
           </div>
-        </div>
+        </ListSection>
 
-        {item.sortlyId ? (
-          <p className="text-xs text-ink-muted">Sortly ID: {item.sortlyId}</p>
-        ) : null}
-        </div>
+        <ListSection footer={item.sortlyId ? `Imported from Sortly · ${item.sortlyId}` : undefined}>
+          <ListRow onClick={() => archiveItem(item.id, !item.archived)} title={item.archived ? "Unarchive Item" : "Archive Item"} tint />
+          <ListRow onClick={() => setConfirmDelete(true)} title="Delete Item" destructive />
+        </ListSection>
       </div>
+
+      <ActionSheet
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        title={`Delete “${item.name}”?`}
+        message="This can’t be undone."
+        actions={[
+          {
+            label: "Delete Item",
+            destructive: true,
+            onSelect: () => {
+              deleteItem(item.id);
+              router.push("/");
+            },
+          },
+        ]}
+      />
 
       {showPurchase ? (
         <LogPurchaseSheet
           item={item}
-          lastPurchase={getPurchasesForItem(item.id)[0] ?? null}
+          lastPurchase={hist[0] ?? null}
           open
           onClose={() => setShowPurchase(false)}
           onSave={(data) => {
-            logPurchase({
-              itemId: item.id,
-              ...data,
-              source: "manual",
-              alsoRestock: false,
-            });
+            logPurchase({ itemId: item.id, ...data, source: "manual", alsoRestock: false });
             setShowPurchase(false);
           }}
         />
       ) : null}
-
-      <div className="grid gap-2 sm:grid-cols-2">
-        <button
-          type="button"
-          onClick={() => archiveItem(item.id, !item.archived)}
-          className="rounded-xl bg-surface-2 px-4 py-3 text-sm font-medium text-ink"
-        >
-          {item.archived ? "Unarchive" : "Archive"}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            if (confirm("Permanently delete this item?")) {
-              deleteItem(item.id);
-              router.push("/");
-            }
-          }}
-          className="rounded-xl bg-danger/10 px-4 py-3 text-sm font-medium text-danger"
-        >
-          Delete
-        </button>
-      </div>
-    </div>
+    </Page>
   );
 }

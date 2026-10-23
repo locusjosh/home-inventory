@@ -4,6 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useInventory } from "@/context/InventoryContext";
 import { STOCK_FOLDERS } from "@/lib/types";
+import { Page } from "@/components/ui/Page";
+import { Button } from "@/components/ui/Button";
+import { MiniStepper } from "@/components/ui/Controls";
+import { FieldRow, SelectInput, TextArea, TextInput } from "@/components/ui/Form";
 
 export default function AddItemPage() {
   const { addItem } = useInventory();
@@ -17,8 +21,8 @@ export default function AddItemPage() {
   const [vendor, setVendor] = useState("");
   const [notes, setNotes] = useState("");
 
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const submit = (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!name.trim()) return;
     const item = addItem({
       name: name.trim(),
@@ -35,106 +39,64 @@ export default function AddItemPage() {
   };
 
   return (
-    <div className="mx-auto max-w-lg space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold text-ink">Add item</h1>
-        <p className="text-sm text-ink-muted">Create a new inventory entry</p>
-      </div>
-      <form onSubmit={submit} className="space-y-3 rounded-2xl bg-surface p-4 shadow-soft">
-        <label className="block space-y-1">
-          <span className="text-sm font-medium text-ink">Name</span>
-          <input
-            required
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full rounded-xl border border-surface-3 bg-surface-2 px-3 py-3 text-ink outline-none focus:border-accent"
-          />
-        </label>
-        <label className="block space-y-1">
-          <span className="text-sm font-medium text-ink">Folder</span>
-          <select
-            value={folder}
-            onChange={(e) => setFolder(e.target.value)}
-            className="w-full rounded-xl border border-surface-3 bg-surface-2 px-3 py-3 text-ink outline-none focus:border-accent"
-          >
-            {STOCK_FOLDERS.map((f) => (
-              <option key={f} value={f}>
-                {f}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="grid grid-cols-2 gap-3">
-          <label className="block space-y-1">
-            <span className="text-sm font-medium text-ink">Quantity</span>
-            <input
-              type="number"
-              min={0}
-              step="any"
-              value={quantity}
-              onChange={(e) => setQuantity(Number(e.target.value) || 0)}
-              className="w-full rounded-xl border border-surface-3 bg-surface-2 px-3 py-3 text-ink outline-none focus:border-accent"
-            />
-          </label>
-          <label className="block space-y-1">
-            <span className="text-sm font-medium text-ink">Unit</span>
-            <input
-              value={unit}
-              onChange={(e) => setUnit(e.target.value)}
-              className="w-full rounded-xl border border-surface-3 bg-surface-2 px-3 py-3 text-ink outline-none focus:border-accent"
-            />
-          </label>
+    <Page
+      title="New Item"
+      back={{ href: "/more", label: "More", useHistory: true }}
+      actions={
+        <Button variant="plain" onClick={() => submit()} disabled={!name.trim()} className="font-semibold">
+          Add
+        </Button>
+      }
+    >
+      <form onSubmit={submit} className="space-y-6">
+        <div className="ios-group overflow-hidden rounded-card bg-bg-grouped-2">
+          <FieldRow label="Name">
+            <TextInput required value={name} onChange={(e) => setName(e.target.value)} placeholder="Paper Towels" autoFocus />
+          </FieldRow>
+          <FieldRow label="Room">
+            <SelectInput value={folder} onChange={(e) => setFolder(e.target.value)}>
+              {STOCK_FOLDERS.map((f) => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
+              ))}
+            </SelectInput>
+          </FieldRow>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <label className="block space-y-1">
-            <span className="text-sm font-medium text-ink">Min level</span>
-            <input
-              type="number"
-              min={0}
-              step="any"
-              value={minLevel}
-              onChange={(e) => setMinLevel(e.target.value)}
-              placeholder="optional"
-              className="w-full rounded-xl border border-surface-3 bg-surface-2 px-3 py-3 text-ink outline-none focus:border-accent"
-            />
-          </label>
-          <label className="block space-y-1">
-            <span className="text-sm font-medium text-ink">Price</span>
-            <input
-              type="number"
-              min={0}
-              step="0.01"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              placeholder="optional"
-              className="w-full rounded-xl border border-surface-3 bg-surface-2 px-3 py-3 text-ink outline-none focus:border-accent"
-            />
-          </label>
+
+        <div className="ios-group overflow-hidden rounded-card bg-bg-grouped-2">
+          <div className="ios-row flex items-center">
+            <div className="ios-row-inner ml-4 flex min-h-tap flex-1 items-center justify-between gap-3 py-1 pr-3">
+              <span className="text-body text-label">Quantity</span>
+              <div className="w-36">
+                <MiniStepper value={quantity} onChange={setQuantity} label="New item" />
+              </div>
+            </div>
+          </div>
+          <FieldRow label="Unit">
+            <TextInput value={unit} onChange={(e) => setUnit(e.target.value)} />
+          </FieldRow>
+          <FieldRow label="Keep at Least">
+            <TextInput type="number" min={0} step="any" inputMode="decimal" value={minLevel} onChange={(e) => setMinLevel(e.target.value)} placeholder="Optional" />
+          </FieldRow>
         </div>
-        <label className="block space-y-1">
-          <span className="text-sm font-medium text-ink">Vendor</span>
-          <input
-            value={vendor}
-            onChange={(e) => setVendor(e.target.value)}
-            className="w-full rounded-xl border border-surface-3 bg-surface-2 px-3 py-3 text-ink outline-none focus:border-accent"
-          />
-        </label>
-        <label className="block space-y-1">
-          <span className="text-sm font-medium text-ink">Notes</span>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={3}
-            className="w-full rounded-xl border border-surface-3 bg-surface-2 px-3 py-3 text-ink outline-none focus:border-accent"
-          />
-        </label>
-        <button
-          type="submit"
-          className="w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-white hover:opacity-90"
-        >
-          Save item
-        </button>
+
+        <div className="ios-group overflow-hidden rounded-card bg-bg-grouped-2">
+          <FieldRow label="Price">
+            <TextInput type="number" min={0} step="0.01" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Optional" />
+          </FieldRow>
+          <FieldRow label="Store">
+            <TextInput value={vendor} onChange={(e) => setVendor(e.target.value)} placeholder="Optional" />
+          </FieldRow>
+          <FieldRow label="Notes" stacked>
+            <TextArea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} placeholder="Brand, size, where it’s kept…" />
+          </FieldRow>
+        </div>
+
+        <Button type="submit" variant="primary" size="lg" block disabled={!name.trim()}>
+          Add Item
+        </Button>
       </form>
-    </div>
+    </Page>
   );
 }

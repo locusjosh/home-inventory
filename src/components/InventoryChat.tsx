@@ -9,6 +9,9 @@ import {
 } from "@/lib/chatbot";
 import type { InventoryItem } from "@/lib/types";
 import { formatQty } from "@/lib/utils";
+import { Page } from "./ui/Page";
+import { IconButton } from "./ui/Button";
+import { Icon } from "./ui/Icon";
 import {
   RECOGNITION_COOLDOWN_MS,
   SILENT_MODE_TIP,
@@ -35,11 +38,14 @@ type Msg = {
 };
 
 type InventoryChatProps = {
-  /** Full Jarvis Assist layout vs compact embed on Data */
+  /** Kept for compatibility; the assistant now always renders full-screen. */
   variant?: "full" | "compact";
 };
 
 const STORAGE_KEY = "home-inventory-chat-v1";
+const WELCOME =
+  "Hi Josh. Ask what’s running low, how many of something you have, or say things like “used 2 paper towels”.";
+const TIP_KEY = "home-inventory-assist-tip-dismissed";
 
 function loadHistory(): Msg[] {
   if (typeof window === "undefined") return [];
@@ -65,7 +71,8 @@ function formatTime(ts?: number): string {
   }
 }
 
-export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function InventoryChat(_props: InventoryChatProps = {}) {
   const {
     myItems,
     ideaItems,
@@ -131,12 +138,11 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
         {
           id: "welcome",
           role: "assistant",
-          text: "Inventory online. Ask about stock or update counts — 100% on this device. Tap the mic or type below.",
+          text: WELCOME,
           at: Date.now(),
         },
       ]);
-      lastAssistantRef.current =
-        "Inventory online. Ask about stock or update counts — 100% on this device. Tap the mic or type below.";
+      lastAssistantRef.current = WELCOME;
     }
     setVoiceSupported(isSpeechRecognitionSupported());
     setTtsSupported(isSpeechSynthesisSupported());
@@ -162,10 +168,9 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
   }, [messages, hydrated]);
 
   useEffect(() => {
-    const el = listRef.current;
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
-  }, [messages, interim]);
+    if (!hydrated) return;
+    window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" });
+  }, [messages, interim, hydrated]);
 
   const applyAction = useCallback(
     (result: ChatResult) => {
@@ -291,7 +296,7 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
       setMicToggleOn(false);
       startingRef.current = false;
 
-      requestAnimationFrame(() => inputRef.current?.focus());
+      if (!opts?.fromVoice) requestAnimationFrame(() => inputRef.current?.focus());
     },
     [
       myItems,
@@ -437,256 +442,206 @@ export function InventoryChat({ variant = "compact" }: InventoryChatProps) {
     });
   };
 
-  const statusLabel =
-    status === "listening"
-      ? "Listening…"
-      : status === "speaking"
-        ? "Speaking…"
-        : voiceSupported
-          ? "Ready"
-          : "Voice unavailable";
+  const [tipDismissed, setTipDismissed] = useState(true);
+  useEffect(() => {
+    try {
+      setTipDismissed(localStorage.getItem(TIP_KEY) === "1");
+    } catch {
+      setTipDismissed(false);
+    }
+  }, []);
+  const dismissTip = () => {
+    setTipDismissed(true);
+    try {
+      localStorage.setItem(TIP_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+  };
 
-  const isFull = variant === "full";
+  const listening = status === "listening";
+  const speaking = status === "speaking";
+  const statusLabel = listening
+    ? "Listening…"
+    : speaking
+      ? "Speaking…"
+      : voiceSupported
+        ? "On this iPhone"
+        : "Voice unavailable here";
 
   return (
-    <section
-      className={`relative flex flex-col overflow-hidden rounded-3xl border border-indigo-300/20 shadow-lux-lg assist-panel assist-glass text-stone-100 ${
-        isFull
-          ? "min-h-[calc(100dvh-14.5rem)] md:min-h-[calc(100dvh-12rem)]"
-          : ""
-      }`}
+    <Page
+      title="Assistant"
+      subtitle={statusLabel}
+      actions={
+        ttsSupported ? (
+          <IconButton
+            label={voiceReplies ? "Turn off spoken replies" : "Turn on spoken replies"}
+            onClick={toggleVoiceReplies}
+            aria-pressed={voiceReplies}
+          >
+            <Icon name={voiceReplies ? "speaker" : "speaker.slash"} size={24} />
+          </IconButton>
+        ) : null
+      }
     >
-      {/* Ambient glow when listening */}
-      <div
-        className={`pointer-events-none absolute inset-0 transition-opacity duration-500 ${
-          status === "listening" ? "opacity-100" : "opacity-0"
-        }`}
-        aria-hidden
-      >
-        <div className="absolute -left-20 top-10 h-56 w-56 rounded-full bg-indigo-500/25 blur-3xl" />
-        <div className="absolute -right-16 bottom-24 h-48 w-48 rounded-full bg-indigo-500/20 blur-3xl" />
-      </div>
-
       {toast ? (
         <div
           role="status"
-          className="absolute left-3 right-3 top-3 z-30 rounded-xl border border-amber-400/30 bg-amber-500/20 px-3 py-2 text-center text-xs font-medium text-amber-100 backdrop-blur"
+          className="animate-fade-in fixed left-1/2 top-[calc(env(safe-area-inset-top)+52px)] z-[55] max-w-[90vw] -translate-x-1/2 rounded-full bg-black/80 px-4 py-2.5 text-center text-footnote font-semibold text-white backdrop-blur"
         >
           {toast}
         </div>
       ) : null}
 
-      <div className="relative z-10 flex items-start justify-between gap-3 border-b border-white/10 px-4 py-3">
-        <div>
-          <h2 className="font-semibold tracking-tight text-white">
-            {isFull ? "Jarvis Assist" : "Assistant"}
-          </h2>
-          <p className="text-xs text-stone-400">
-            On-device · Web Speech · no cloud AI
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-1.5">
-          <div
-            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ${
-              status === "listening"
-                ? "bg-sky-500/20 text-indigo-300"
-                : status === "speaking"
-                  ? "bg-violet-500/20 text-violet-300"
-                  : "bg-white/10 text-stone-200"
-            }`}
-            aria-live="polite"
-          >
-            <span
-              className={`h-1.5 w-1.5 rounded-full ${
-                status === "listening"
-                  ? "animate-pulse bg-indigo-400"
-                  : status === "speaking"
-                    ? "animate-pulse bg-violet-400"
-                    : "bg-emerald-400/80"
-              }`}
-            />
-            {statusLabel}
+      {!tipDismissed ? (
+        <div className="mb-4 flex items-start gap-3 rounded-card bg-bg-grouped-2 p-4">
+          <span className="mt-0.5 text-tint">
+            <Icon name="info.circle" size={22} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-headline text-label">Voice works best from the Home Screen</p>
+            <p className="mt-1 text-subhead text-label-2">
+              Allow the microphone when Safari asks. If replies are silent, turn off Silent Mode.
+              Everything stays on this iPhone.
+            </p>
           </div>
-          {ttsSupported ? (
-            <button
-              type="button"
-              onClick={toggleVoiceReplies}
-              className={`text-[11px] font-medium ${
-                voiceReplies ? "text-indigo-300" : "text-stone-500"
-              }`}
-            >
-              Voice replies {voiceReplies ? "on" : "off"}
-            </button>
-          ) : null}
+          <button
+            type="button"
+            onClick={dismissTip}
+            aria-label="Dismiss tip"
+            className="pressable -mr-2 -mt-2 flex h-11 w-11 items-center justify-center text-label-2"
+          >
+            <Icon name="xmark" size={18} strokeWidth={2.2} />
+          </button>
         </div>
-      </div>
+      ) : null}
 
       <div
         ref={listRef}
-        className={`relative z-10 space-y-2.5 overflow-y-auto overscroll-contain px-3 py-3 ${
-          isFull ? "flex-1" : "max-h-80"
-        }`}
+        className="space-y-1 pb-[calc(env(safe-area-inset-bottom)+170px)]"
         role="log"
         aria-live="polite"
+        aria-label="Conversation"
       >
-        {messages.map((m) => (
-          <div
-            key={m.id}
-            className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
-          >
-            <div
-              className={`max-w-[88%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed shadow-sm ${
-                m.role === "user"
-                  ? "rounded-br-md bg-indigo-500 text-white"
-                  : "rounded-bl-md border border-white/10 bg-white/5 text-stone-100 backdrop-blur"
-              }`}
-            >
-              {m.text}
-              {m.at ? (
-                <div
-                  className={`mt-1 text-[10px] ${
-                    m.role === "user" ? "text-indigo-100/70" : "text-stone-500"
-                  }`}
-                >
-                  {formatTime(m.at)}
-                </div>
+        {messages.map((m, i) => {
+          const mine = m.role === "user";
+          const next = messages[i + 1];
+          const lastOfRun = !next || next.role !== m.role;
+          return (
+            <div key={m.id} className={`flex flex-col ${mine ? "items-end" : "items-start"} ${lastOfRun ? "pb-2" : ""}`}>
+              <div
+                className={`max-w-[80%] whitespace-pre-wrap break-words rounded-[18px] px-3.5 py-2 text-body ${
+                  mine ? "bg-tint-fill text-white" : "bg-bubble text-label"
+                } ${lastOfRun ? (mine ? "rounded-br-[6px]" : "rounded-bl-[6px]") : ""}`}
+              >
+                {m.text}
+              </div>
+              {lastOfRun && m.at ? (
+                <span className="mt-1 px-2 text-caption text-label-2">{formatTime(m.at)}</span>
               ) : null}
             </div>
-          </div>
-        ))}
-
+          );
+        })}
         {interim ? (
           <div className="flex justify-end">
-            <div className="max-w-[88%] rounded-2xl rounded-br-md bg-indigo-500/40 px-3.5 py-2 text-sm italic text-indigo-100">
+            <div className="max-w-[80%] rounded-[18px] rounded-br-[6px] bg-tint-soft px-3.5 py-2 text-body italic text-tint">
               {interim}
             </div>
           </div>
         ) : null}
       </div>
 
-      {pendingCandidates.length > 0 ? (
-        <div className="relative z-10 flex flex-wrap gap-2 border-t border-white/5 px-3 py-2">
-          <span className="w-full text-[11px] font-medium uppercase tracking-wide text-stone-500">
-            Pick one
-          </span>
-          {pendingCandidates.map((c, i) => (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => send(String(i + 1))}
-              className="rounded-full border border-indigo-400/30 bg-sky-500/10 px-3 py-1.5 text-xs font-medium text-sky-200 active:scale-95"
-            >
-              {i + 1}. {c.name}
-              <span className="ml-1 text-stone-500">({c.folder})</span>
-            </button>
-          ))}
-        </div>
-      ) : null}
+      {/* Composer — pinned above the tab bar */}
+      <div
+        className="ios-bar hairline-t fixed inset-x-0 z-40"
+        style={{ bottom: "calc(49px + env(safe-area-inset-bottom))" }}
+      >
+        <div className="mx-auto max-w-2xl px-3 pb-2 pt-2">
+          {showSilentTip ? (
+            <div className="mb-2 flex items-center gap-2 rounded-[12px] bg-bg-grouped-2 py-1 pl-3 pr-1">
+              <p className="min-w-0 flex-1 text-footnote text-label-2">{SILENT_MODE_TIP}</p>
+              <button
+                type="button"
+                className="pressable min-h-tap shrink-0 px-2 text-subhead font-semibold text-tint"
+                onClick={() => setShowSilentTip(false)}
+              >
+                OK
+              </button>
+            </div>
+          ) : null}
 
-      <div className="relative z-10 flex flex-wrap gap-2 border-t border-white/5 px-3 py-2">
-        {SUGGESTION_CHIPS.map((chip) => (
-          <button
-            key={chip}
-            type="button"
-            onClick={() => send(chip)}
-            className="rounded-full bg-white/10 px-3 py-2 text-xs font-semibold text-stone-100 ring-1 ring-white/20 active:scale-95"
-          >
-            {chip}
-          </button>
-        ))}
-      </div>
+          <div className="-mx-3 overflow-x-auto px-3 scrollbar-none">
+            <div className="flex w-max gap-2 pb-2">
+              {pendingCandidates.length > 0
+                ? pendingCandidates.map((c, i) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => send(String(i + 1))}
+                      className="pressable focus-ring min-h-tap shrink-0 rounded-full bg-tint-soft px-4 text-subhead font-semibold text-tint"
+                    >
+                      {c.name}
+                      <span className="ml-1.5 font-normal">· {c.folder}</span>
+                    </button>
+                  ))
+                : SUGGESTION_CHIPS.map((chip) => (
+                    <button
+                      key={chip}
+                      type="button"
+                      onClick={() => send(chip)}
+                      className="pressable focus-ring min-h-tap shrink-0 rounded-full bg-bg-grouped-2 px-4 text-subhead font-semibold text-label shadow-[inset_0_0_0_0.5px_var(--separator)]"
+                    >
+                      {chip}
+                    </button>
+                  ))}
+            </div>
+          </div>
 
-      {showSilentTip ? (
-        <div className="relative z-10 border-t border-white/5 px-3 py-2">
-          <p className="rounded-xl bg-white/5 px-3 py-2 text-[11px] leading-relaxed text-stone-400">
-            {SILENT_MODE_TIP}{" "}
-            <button
-              type="button"
-              className="text-indigo-300 underline"
-              onClick={() => setShowSilentTip(false)}
-            >
-              Dismiss
-            </button>
-          </p>
-        </div>
-      ) : null}
-
-      {/* Mic + input */}
-      <div className="relative z-10 border-t border-white/10 px-3 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] md:pb-3">
-        <div className="mb-3 flex flex-col items-center gap-2">
-          {voiceSupported ? (
-            <>
+          <form onSubmit={onSubmit} className="flex items-center gap-2">
+            {voiceSupported ? (
               <button
                 type="button"
                 onClick={toggleMic}
-                aria-pressed={status === "listening"}
-                aria-label={
-                  status === "listening" ? "Stop listening" : "Start listening"
-                }
-                className={`relative flex h-16 w-16 items-center justify-center rounded-full transition-transform active:scale-95 ${
-                  status === "listening"
-                    ? "bg-indigo-500 text-white shadow-[0_0_0_8px_rgba(129,140,248,0.28)] mic-pulse"
-                    : "bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-lg shadow-indigo-900/40"
+                aria-pressed={listening}
+                aria-label={listening ? "Stop listening" : "Speak"}
+                className={`pressable focus-ring flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white ${
+                  listening ? "mic-pulse bg-sys-red" : "bg-tint-fill"
                 }`}
               >
-                <MicIcon listening={status === "listening"} />
+                <Icon name={listening ? "stop" : "mic"} size={22} />
               </button>
-              <p className="text-center text-[11px] text-stone-500">
-                {status === "listening"
-                  ? "Listening… tap again to stop"
-                  : "Tap mic to toggle · Safari: allow mic · Silent Mode may mute TTS"}
-              </p>
-            </>
-          ) : (
-            <p className="rounded-xl bg-white/5 px-3 py-2 text-center text-xs text-stone-400">
-              Voice not supported here. Type below — or open in Safari and Add
-              to Home Screen for best mic support.
-            </p>
-          )}
+            ) : null}
+            <div className="flex min-h-tap min-w-0 flex-1 items-center rounded-full bg-bg-grouped-2 pl-4 pr-1 shadow-[inset_0_0_0_0.5px_var(--separator)]">
+              <input
+                ref={inputRef}
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={listening ? "Listening…" : "Ask about your stock"}
+                aria-label="Message"
+                autoComplete="off"
+                enterKeyHint="send"
+                className="min-h-tap min-w-0 flex-1 bg-transparent text-body text-label outline-none"
+              />
+              <button
+                type="submit"
+                disabled={!input.trim()}
+                aria-label="Send"
+                className="pressable focus-ring flex h-11 w-11 shrink-0 items-center justify-center"
+              >
+                <span
+                  className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                    input.trim() ? "bg-tint-fill text-white" : "bg-fill-3 text-label-2"
+                  }`}
+                >
+                  <Icon name="arrow.up" size={18} strokeWidth={2.6} />
+                </span>
+              </button>
+            </div>
+          </form>
         </div>
-
-        <form onSubmit={onSubmit} className="flex gap-2">
-          <input
-            ref={inputRef}
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask or update…"
-            autoComplete="off"
-            enterKeyHint="send"
-            className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-white placeholder:text-stone-500 focus:border-indigo-400/50 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
-          />
-          <button
-            type="submit"
-            disabled={!input.trim()}
-            className="shrink-0 rounded-xl bg-indigo-500 px-4 py-3 text-sm font-semibold text-white disabled:opacity-40"
-          >
-            Send
-          </button>
-        </form>
       </div>
-    </section>
-  );
-}
-
-function MicIcon({ listening }: { listening: boolean }) {
-  return (
-    <svg
-      width="28"
-      height="28"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden
-      className={listening ? "animate-pulse" : undefined}
-    >
-      <path
-        d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Z"
-        fill="currentColor"
-      />
-      <path
-        d="M19 11a1 1 0 1 0-2 0 5 5 0 0 1-10 0 1 1 0 1 0-2 0 7 7 0 0 0 6 6.93V21a1 1 0 1 0 2 0v-3.07A7 7 0 0 0 19 11Z"
-        fill="currentColor"
-      />
-    </svg>
+    </Page>
   );
 }

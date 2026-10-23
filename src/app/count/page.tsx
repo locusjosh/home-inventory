@@ -5,6 +5,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useInventory } from "@/context/InventoryContext";
 import { ItemImage } from "@/components/ItemImage";
 import { EmptyState } from "@/components/EmptyState";
+import { Page } from "@/components/ui/Page";
+import { ChipBar, Switch } from "@/components/ui/Controls";
+import { Button } from "@/components/ui/Button";
+import { Icon } from "@/components/ui/Icon";
 import { COUNT_FOLDERS } from "@/lib/types";
 import { formatQty } from "@/lib/utils";
 
@@ -14,9 +18,10 @@ function CountModeInner() {
   const folderParam = searchParams.get("folder");
   const { myItems, confirmCount, folderCounts } = useInventory();
 
-  const foldersWithItems = useMemo(() => {
-    return COUNT_FOLDERS.filter((f) => (folderCounts[f] ?? 0) > 0);
-  }, [folderCounts]);
+  const foldersWithItems = useMemo(
+    () => COUNT_FOLDERS.filter((f) => (folderCounts[f] ?? 0) > 0),
+    [folderCounts]
+  );
 
   const initialFolder = useMemo(() => {
     if (folderParam && foldersWithItems.includes(folderParam as (typeof COUNT_FOLDERS)[number])) {
@@ -30,46 +35,41 @@ function CountModeInner() {
   const [draftQty, setDraftQty] = useState(0);
   const [uncountedOnly, setUncountedOnly] = useState(false);
 
-  useEffect(() => {
-    setFolder(initialFolder);
-  }, [initialFolder]);
+  useEffect(() => setFolder(initialFolder), [initialFolder]);
 
   const roomItems = useMemo(() => {
     let list = myItems.filter((i) => i.folder === folder);
-    if (uncountedOnly) {
-      list = list.filter((i) => !i.lastCountedAt);
-    }
+    if (uncountedOnly) list = list.filter((i) => !i.lastCountedAt);
     return [...list].sort((a, b) => a.name.localeCompare(b.name));
   }, [myItems, folder, uncountedOnly]);
 
   const current = roomItems[index] ?? null;
 
-  useEffect(() => {
-    setIndex(0);
-  }, [folder, uncountedOnly]);
+  useEffect(() => setIndex(0), [folder, uncountedOnly]);
 
   useEffect(() => {
-    if (current) setDraftQty(current.quantity);
-    else setDraftQty(0);
+    setDraftQty(current ? current.quantity : 0);
   }, [current?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const selectFolder = useCallback(
+    (f: string) => {
+      setFolder(f);
+      router.replace(`/count/?folder=${encodeURIComponent(f)}`, { scroll: false });
+    },
+    [router]
+  );
 
   const goNextRoom = useCallback(() => {
     const idx = foldersWithItems.indexOf(folder as (typeof COUNT_FOLDERS)[number]);
     const next = foldersWithItems[(idx + 1) % Math.max(foldersWithItems.length, 1)];
-    if (next && next !== folder) {
-      setFolder(next);
-      router.replace(`/count/?folder=${encodeURIComponent(next)}`, { scroll: false });
-    }
-  }, [folder, foldersWithItems, router]);
+    if (next && next !== folder) selectFolder(next);
+  }, [folder, foldersWithItems, selectFolder]);
 
   const confirmAndNext = () => {
     if (!current) return;
     confirmCount(current.id, draftQty);
-    if (index + 1 < roomItems.length) {
-      setIndex(index + 1);
-    } else {
-      goNextRoom();
-    }
+    if (index + 1 < roomItems.length) setIndex(index + 1);
+    else goNextRoom();
   };
 
   const skip = () => {
@@ -78,156 +78,121 @@ function CountModeInner() {
   };
 
   const bump = (delta: number) => setDraftQty((q) => Math.max(0, q + delta));
+  const progress = roomItems.length ? (index + 1) / roomItems.length : 0;
 
   return (
-    <div className="mx-auto max-w-lg space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="font-display text-2xl font-semibold text-ink">Count mode</h1>
-          <p className="text-sm text-ink-muted">One item at a time · room by room</p>
-        </div>
-        <label className="flex min-h-tap items-center gap-2 text-xs text-ink-muted">
-          <input
-            type="checkbox"
-            checked={uncountedOnly}
-            onChange={(e) => setUncountedOnly(e.target.checked)}
-            className="h-4 w-4 rounded accent-[rgb(var(--accent))]"
-          />
-          Uncounted only
+    <Page title="Count" subtitle="Room by room, one item at a time">
+      <ChipBar
+        value={folder}
+        onChange={selectFolder}
+        ariaLabel="Room"
+        options={foldersWithItems.map((f) => ({ value: f, label: f, count: folderCounts[f] ?? 0 }))}
+      />
+
+      <div className="ios-group mt-4 overflow-hidden rounded-card bg-bg-grouped-2">
+        <label className="ios-row flex cursor-pointer items-center">
+          <span className="ios-row-inner ml-4 flex min-h-tap flex-1 items-center justify-between gap-3 py-1.5 pr-4">
+            <span className="text-body text-label">Uncounted only</span>
+            <Switch checked={uncountedOnly} onChange={setUncountedOnly} label="Uncounted only" />
+          </span>
         </label>
       </div>
 
-      <div className="chip-scroll">
-        <div className="flex gap-2 overflow-x-auto pb-1 pr-8 scrollbar-none">
-          {foldersWithItems.map((f) => {
-            const active = f === folder;
-            return (
-              <button
-                key={f}
-                type="button"
-                onClick={() => {
-                  setFolder(f);
-                  router.replace(`/count/?folder=${encodeURIComponent(f)}`, { scroll: false });
-                }}
-                className={`shrink-0 rounded-full px-3.5 py-2.5 text-sm font-semibold pressable focus-ring ${
-                  active
-                    ? "bg-accent text-white shadow-soft"
-                    : "bg-surface text-ink ring-1 ring-surface-3"
-                }`}
-              >
-                {f}
-                <span className={`ml-1.5 tabular-nums ${active ? "opacity-90" : "text-ink-muted"}`}>
-                  {folderCounts[f] ?? 0}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-        <div className="chip-scroll-fade" aria-hidden />
-      </div>
-
       {current ? (
-        <div className="card-lux overflow-hidden">
-          <ItemImage item={current} aspect="aspect-[4/3]" className="rounded-none" />
-          <div className="p-5">
-            <p className="text-sm font-medium text-ink-muted">
-              {index + 1} of {roomItems.length} in {folder}
-            </p>
-            <h2 className="mt-2 font-display text-2xl font-semibold leading-tight text-ink">
-              {current.name}
-            </h2>
-            <p className="mt-1 text-sm text-ink-muted">
+        <section className="mt-4 overflow-hidden rounded-card bg-bg-grouped-2" aria-live="polite">
+          <div className="p-3 pb-0">
+            <ItemImage item={current} aspect="aspect-[2/1]" symbolSize={64} />
+          </div>
+          <div className="px-5 pb-3 pt-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-subhead tabular-nums text-label-2">
+                {index + 1} of {roomItems.length} · {folder}
+              </p>
+              <p className="text-subhead text-label-2">
+                {current.lastCountedAt
+                  ? `Counted ${new Date(current.lastCountedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
+                  : "Never counted"}
+              </p>
+            </div>
+            <div className="mt-2 h-1 overflow-hidden rounded-full bg-fill-3" aria-hidden>
+              <div className="h-full rounded-full bg-tint transition-all" style={{ width: `${progress * 100}%` }} />
+            </div>
+            <h2 className="mt-4 text-title1 text-label">{current.name}</h2>
+            <p className="mt-1 text-subhead text-label-2">
               {current.unit}
-              {current.minLevel != null ? ` · min ${current.minLevel}` : ""}
-              {current.lastCountedAt
-                ? ` · counted ${new Date(current.lastCountedAt).toLocaleDateString()}`
-                : " · never counted"}
+              {current.minLevel != null ? ` · keep at least ${current.minLevel}` : ""}
             </p>
 
-            <div className="mt-8 flex items-center justify-center gap-3">
+            <div className="mt-5 flex items-center justify-center gap-5">
               <button
                 type="button"
                 aria-label="Decrease"
                 onClick={() => bump(-1)}
-                className="flex h-16 w-16 items-center justify-center rounded-2xl bg-surface-2 text-3xl font-bold text-ink pressable focus-ring"
+                className="pressable focus-ring flex h-16 w-16 items-center justify-center rounded-full bg-fill-3 text-tint"
               >
-                −
+                <Icon name="minus" size={28} strokeWidth={2.4} />
               </button>
               <input
                 type="number"
                 inputMode="numeric"
                 pattern="[0-9]*"
                 min={0}
+                aria-label="Counted quantity"
                 value={formatQty(draftQty)}
                 onChange={(e) => {
                   const n = parseFloat(e.target.value);
                   setDraftQty(Number.isNaN(n) ? 0 : Math.max(0, n));
                 }}
-                className="h-16 w-28 rounded-2xl border-2 border-surface-3 bg-surface-2 text-center text-3xl font-bold tabular-nums text-ink outline-none focus:border-accent"
+                className="focus-ring h-16 w-24 rounded-[14px] bg-transparent text-center text-[44px] font-bold leading-none tabular-nums text-label outline-none"
               />
               <button
                 type="button"
                 aria-label="Increase"
                 onClick={() => bump(1)}
-                className="flex h-16 w-16 items-center justify-center rounded-2xl bg-accent text-3xl font-bold text-white pressable focus-ring"
+                className="pressable focus-ring flex h-16 w-16 items-center justify-center rounded-full bg-fill-3 text-tint"
               >
-                +
+                <Icon name="plus" size={28} strokeWidth={2.4} />
               </button>
             </div>
 
-            <div className="mt-8 grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={skip}
-                className="min-h-tap rounded-2xl bg-surface-2 px-3 py-4 text-sm font-semibold text-ink-muted pressable focus-ring"
-              >
+            <Button variant="primary" size="lg" block className="mt-5" onClick={confirmAndNext}>
+              Confirm Count
+            </Button>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <Button variant="plain" onClick={skip}>
                 Skip
-              </button>
-              <button
-                type="button"
-                onClick={confirmAndNext}
-                className="min-h-tap rounded-2xl bg-accent px-3 py-4 text-sm font-semibold text-white pressable focus-ring"
-              >
-                Confirm
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="plain"
                 onClick={() => {
                   confirmCount(current.id, draftQty);
                   goNextRoom();
                 }}
-                className="min-h-tap rounded-2xl bg-accent-soft px-3 py-4 text-sm font-semibold text-accent pressable focus-ring"
               >
-                Done room
-              </button>
+                Finish Room
+              </Button>
             </div>
           </div>
-        </div>
+        </section>
       ) : (
         <EmptyState
-          title={uncountedOnly ? `No uncounted items in ${folder}` : `No items in ${folder}`}
+          icon="checkmark.circle"
+          title={uncountedOnly ? `${folder} Is Counted` : `No Items in ${folder}`}
+          description={uncountedOnly ? "Every item in this room has a count." : undefined}
           action={
-            <button
-              type="button"
-              onClick={goNextRoom}
-              className="rounded-xl bg-accent px-4 py-3 text-sm font-medium text-white pressable focus-ring"
-            >
-              Next room
-            </button>
+            <Button variant="secondary" onClick={goNextRoom}>
+              Next Room
+            </Button>
           }
         />
       )}
-    </div>
+    </Page>
   );
 }
 
 export default function CountPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="card-lux p-8 text-center text-ink-muted">Loading count mode…</div>
-      }
-    >
+    <Suspense fallback={null}>
       <CountModeInner />
     </Suspense>
   );

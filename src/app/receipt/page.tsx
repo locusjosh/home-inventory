@@ -5,6 +5,13 @@ import { useRouter } from "next/navigation";
 import { useInventory } from "@/context/InventoryContext";
 import { STOCK_FOLDERS, type ItemDraft } from "@/lib/types";
 import { formatPrice } from "@/lib/utils";
+import { Page } from "@/components/ui/Page";
+import { Button } from "@/components/ui/Button";
+import { Icon } from "@/components/ui/Icon";
+import { ListSection } from "@/components/ui/List";
+import { FieldRow, SelectInput, TextInput } from "@/components/ui/Form";
+import { SegmentedControl, StatusTag } from "@/components/ui/Controls";
+import { EmptyState } from "@/components/EmptyState";
 import {
   matchLineToInventory,
   parseReceiptText,
@@ -151,7 +158,7 @@ export default function ReceiptPage() {
       setError(
         err instanceof Error
           ? err.message
-          : "OCR failed. Check your connection (OCR engine loads from CDN) and try again."
+          : "Couldn’t read the receipt. Check your connection and try again."
       );
     }
   };
@@ -258,187 +265,163 @@ export default function ReceiptPage() {
     setPhase("done");
   };
 
-  const confBadge = (c: "high" | "medium" | "low") => {
-    const cls =
-      c === "high"
-        ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-        : c === "medium"
-          ? "bg-amber-500/15 text-amber-800 dark:text-amber-300"
-          : "bg-danger/10 text-danger";
-    return (
-      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${cls}`}>
-        {c}
-      </span>
+  const confTag = (c: "high" | "medium" | "low") =>
+    c === "high" ? (
+      <StatusTag tone="green">Clear read</StatusTag>
+    ) : c === "medium" ? (
+      <StatusTag tone="orange">Check this line</StatusTag>
+    ) : (
+      <StatusTag tone="orange">Hard to read</StatusTag>
     );
+
+  const resetCapture = () => {
+    setPhase("capture");
+    setFile(null);
+    setPreviewUrl(null);
+    setLines([]);
+    setParsed(null);
+    setError(null);
   };
 
+  const selectedCount = lines.filter((l) => l.action !== "skip").length;
+  const sortedItems = myItems.slice().sort((a, b) => a.name.localeCompare(b.name));
+
   return (
-    <div className="mx-auto max-w-lg space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold text-ink">Scan receipt</h1>
-        <p className="text-sm text-ink-muted">
-          Photo → on-device OCR → match to inventory → confirm. Nothing leaves your phone.
-        </p>
-      </div>
+    <Page
+      title="Scan Receipt"
+      back={{ href: "/more", label: "More", useHistory: true }}
+      subtitle={phase === "review" ? "Check each line, then confirm." : undefined}
+    >
+      <input
+        ref={cameraRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => {
+          onPick(e.target.files?.[0] ?? null);
+          e.target.value = "";
+        }}
+      />
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          onPick(e.target.files?.[0] ?? null);
+          e.target.value = "";
+        }}
+      />
 
       {phase === "capture" || phase === "error" ? (
-        <section className="space-y-3 rounded-2xl bg-surface p-4 shadow-soft">
-          <p className="rounded-xl bg-accent-soft/50 px-3 py-2 text-xs text-ink-muted">
-            Tip: good lighting, fill the frame, flatten the receipt. Works best with Costco / Walmart /
-            grocery style receipts.
-          </p>
-
+        <section className="space-y-4">
           {previewUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={previewUrl}
-              alt="Receipt preview"
-              className="max-h-64 w-full rounded-xl object-contain bg-surface-2"
-            />
+            <div className="overflow-hidden rounded-card bg-bg-grouped-2 p-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={previewUrl} alt="Receipt preview" className="max-h-[52vh] w-full rounded-[10px] object-contain" />
+            </div>
           ) : (
-            <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-surface-3 bg-surface-2 text-sm text-ink-muted">
-              No photo yet
+            <div className="flex flex-col items-center rounded-card bg-bg-grouped-2 px-6 py-10 text-center">
+              <span className="flex h-20 w-20 items-center justify-center rounded-full bg-tint-soft text-tint" aria-hidden>
+                <Icon name="camera" size={40} strokeWidth={1.6} />
+              </span>
+              <h2 className="mt-4 text-title3 text-label">Photograph a Receipt</h2>
+              <p className="mt-1.5 max-w-xs text-subhead text-label-2">
+                Lay it flat in good light and fill the frame. Items are matched to your stock on this iPhone.
+              </p>
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => cameraRef.current?.click()}
-              className="rounded-xl bg-accent px-3 py-3 text-sm font-semibold text-white"
-            >
-              Take photo
-            </button>
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className="rounded-xl bg-surface-2 px-3 py-3 text-sm font-medium text-ink"
-            >
-              Upload image
-            </button>
-          </div>
-          <input
-            ref={cameraRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={(e) => {
-              onPick(e.target.files?.[0] ?? null);
-              e.target.value = "";
-            }}
-          />
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              onPick(e.target.files?.[0] ?? null);
-              e.target.value = "";
-            }}
-          />
-
           {error ? (
-            <p className="rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>
+            <p className="flex items-start gap-2 rounded-card bg-bg-grouped-2 px-4 py-3 text-subhead text-sys-red-text" role="alert">
+              <Icon name="exclamationmark.triangle" size={18} />
+              <span>{error}</span>
+            </p>
           ) : null}
 
-          <button
-            type="button"
-            disabled={!file}
-            onClick={() => void runOcr()}
-            className="w-full rounded-xl bg-accent px-4 py-3.5 text-sm font-semibold text-white disabled:opacity-40"
-          >
-            Read receipt
-          </button>
+          {file ? (
+            <div className="space-y-2">
+              <Button variant="primary" size="lg" block onClick={() => void runOcr()}>
+                Read Receipt
+              </Button>
+              <Button variant="plain" block onClick={() => cameraRef.current?.click()}>
+                Retake Photo
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Button variant="primary" size="lg" block onClick={() => cameraRef.current?.click()}>
+                <Icon name="camera" size={20} strokeWidth={2} />
+                Take Photo
+              </Button>
+              <Button variant="plain" block onClick={() => fileRef.current?.click()}>
+                Choose from Library
+              </Button>
+            </div>
+          )}
+
+          <p className="px-4 text-footnote text-label-2">
+            Works best with Costco, Walmart and grocery receipts. Nothing is uploaded.
+          </p>
         </section>
       ) : null}
 
       {phase === "reading" ? (
-        <section className="space-y-3 rounded-2xl bg-surface p-6 text-center shadow-soft">
-          <p className="font-medium text-ink">{progressLabel}</p>
-          <div className="h-2 overflow-hidden rounded-full bg-surface-3">
-            <div
-              className="h-full rounded-full bg-accent transition-all"
-              style={{ width: `${Math.max(4, progress)}%` }}
-            />
+        <section className="rounded-card bg-bg-grouped-2 px-6 py-10 text-center" aria-live="polite">
+          <p className="text-headline text-label">{progressLabel}</p>
+          <div className="mx-auto mt-4 h-1.5 max-w-xs overflow-hidden rounded-full bg-fill-3">
+            <div className="h-full rounded-full bg-tint transition-all" style={{ width: `${Math.max(4, progress)}%` }} />
           </div>
-          <p className="text-xs text-ink-muted">OCR runs on your device · engine loads from CDN</p>
+          <p className="mt-3 text-footnote text-label-2">Reading text on this iPhone…</p>
         </section>
       ) : null}
 
       {phase === "review" ? (
-        <section className="space-y-4">
-          <div className="space-y-3 rounded-2xl bg-surface p-4 shadow-soft">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="font-semibold text-ink">Review</h2>
-              <span className="text-xs text-ink-muted">
-                OCR {Math.round(ocrConfidence)}%
-              </span>
-            </div>
-            <label className="block space-y-1">
-              <span className="text-xs font-medium text-ink-muted">Store / vendor</span>
-              <input
-                value={vendor}
-                onChange={(e) => setVendor(e.target.value)}
-                placeholder="Costco, Walmart…"
-                className="w-full rounded-xl border border-surface-3 bg-surface-2 px-3 py-3 text-ink outline-none focus:border-accent"
-              />
-            </label>
-            <label className="block space-y-1">
-              <span className="text-xs font-medium text-ink-muted">Date</span>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full rounded-xl border border-surface-3 bg-surface-2 px-3 py-3 text-ink outline-none focus:border-accent"
-              />
-            </label>
-            {(parsed?.tax != null || parsed?.total != null) && (
-              <p className="text-xs text-ink-muted">
-                {parsed.tax != null ? `Tax ${formatPrice(parsed.tax)}` : ""}
-                {parsed.tax != null && parsed.total != null ? " · " : ""}
-                {parsed.total != null ? `Total ${formatPrice(parsed.total)}` : ""}
-                {" · "}
-                Lines sum {formatPrice(lineSum)}
-                {parsed.subtotal != null &&
-                Math.abs(parsed.subtotal - lineSum) > 0.5
-                  ? ` (receipt subtotal ${formatPrice(parsed.subtotal)} — check diffs)`
-                  : ""}
-              </p>
-            )}
-            {storageWarn ? (
-              <p className="text-xs text-warn">
-                Thumbnail skipped to save space — OCR text will still be stored.
-              </p>
-            ) : null}
-          </div>
+        <section className="space-y-6">
+          <ListSection
+            header="Receipt"
+            footer={
+              <>
+                {parsed?.total != null ? `Total ${formatPrice(parsed.total)} · ` : ""}
+                {parsed?.tax != null ? `Tax ${formatPrice(parsed.tax)} · ` : ""}
+                Lines add up to {formatPrice(lineSum)}
+                {parsed?.subtotal != null && Math.abs(parsed.subtotal - lineSum) > 0.5
+                  ? ` — subtotal says ${formatPrice(parsed.subtotal)}, check for misses.`
+                  : "."}
+                {` Read confidence ${Math.round(ocrConfidence)}%.`}
+                {storageWarn ? " Photo not saved to save space." : ""}
+              </>
+            }
+          >
+            <FieldRow label="Store">
+              <TextInput value={vendor} onChange={(e) => setVendor(e.target.value)} placeholder="Costco, Walmart…" />
+            </FieldRow>
+            <FieldRow label="Date">
+              <TextInput type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </FieldRow>
+          </ListSection>
 
           {lines.length === 0 ? (
-            <div className="rounded-2xl bg-surface p-6 text-center text-sm text-ink-muted shadow-soft">
-              No line items detected. You can retake the photo or edit raw OCR on another try.
-              <button
-                type="button"
-                className="mt-3 block w-full rounded-xl bg-surface-2 px-3 py-2 text-ink"
-                onClick={() => setPhase("capture")}
-              >
-                Try again
-              </button>
-            </div>
+            <EmptyState
+              icon="doc.text"
+              title="No Items Found"
+              description="Try another photo with better light, flatter paper, and the whole receipt in frame."
+              action={
+                <Button variant="secondary" onClick={() => setPhase("capture")}>
+                  Try Again
+                </Button>
+              }
+            />
           ) : (
-            <ul className="space-y-3">
-              {lines.map((line) => (
-                <li key={line.key} className="rounded-2xl bg-surface p-4 shadow-soft">
-                  <div className="mb-2 flex flex-wrap items-center gap-2">
-                    {confBadge(line.ocrConfidence)}
-                    {line.match.score > 0 ? (
-                      <span className="text-[10px] text-ink-muted">
-                        match {line.match.score}
-                      </span>
-                    ) : null}
-                  </div>
-                  <label className="block space-y-1">
-                    <span className="text-xs text-ink-muted">Description</span>
+            lines.map((line, idx) => (
+              <section key={line.key}>
+                <div className="flex items-end justify-between px-4 pb-1.5">
+                  <h3 className="text-footnote font-semibold text-label-2">Line {idx + 1}</h3>
+                  {confTag(line.ocrConfidence)}
+                </div>
+                <div className="ios-group overflow-hidden rounded-card bg-bg-grouped-2">
+                  <FieldRow label="Item" stacked>
                     <input
                       value={line.description}
                       onChange={(e) => {
@@ -447,225 +430,157 @@ export default function ReceiptPage() {
                         updateLine(line.key, {
                           description,
                           match,
-                          selectedItemId:
-                            line.action === "match"
-                              ? match.itemId
-                              : line.selectedItemId,
+                          selectedItemId: line.action === "match" ? match.itemId : line.selectedItemId,
                         });
                       }}
-                      className="w-full rounded-xl border border-surface-3 bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+                      className="min-h-[34px] w-full bg-transparent text-body text-label outline-none"
                     />
-                  </label>
-                  <div className="mt-2 grid grid-cols-3 gap-2">
-                    <label className="block space-y-1">
-                      <span className="text-xs text-ink-muted">Qty</span>
-                      <input
-                        type="number"
-                        inputMode="decimal"
-                        min={0.01}
-                        step="any"
-                        value={line.qty}
-                        onChange={(e) =>
-                          updateLine(line.key, {
-                            qty: Number(e.target.value) || 1,
-                          })
-                        }
-                        className="w-full rounded-xl border border-surface-3 bg-surface-2 px-2 py-2 text-sm text-ink outline-none focus:border-accent"
-                      />
-                    </label>
-                    <label className="block space-y-1">
-                      <span className="text-xs text-ink-muted">Paid ($)</span>
-                      <input
-                        type="number"
-                        inputMode="decimal"
-                        min={0}
-                        step="0.01"
-                        value={line.price}
-                        onChange={(e) =>
-                          updateLine(line.key, {
-                            price: Number(e.target.value) || 0,
-                          })
-                        }
-                        className="w-full rounded-xl border border-surface-3 bg-surface-2 px-2 py-2 text-sm font-semibold text-ink outline-none focus:border-accent"
-                      />
-                    </label>
-                    <label className="block space-y-1">
-                      <span className="text-xs text-ink-muted">Discount</span>
-                      <input
-                        type="number"
-                        inputMode="decimal"
-                        min={0}
-                        step="0.01"
-                        value={line.discountAmount ?? ""}
-                        placeholder="—"
-                        onChange={(e) =>
-                          updateLine(line.key, {
-                            discountAmount:
-                              e.target.value === ""
-                                ? null
-                                : Number(e.target.value) || 0,
-                          })
-                        }
-                        className="w-full rounded-xl border border-surface-3 bg-surface-2 px-2 py-2 text-sm text-ink outline-none focus:border-accent"
-                      />
-                    </label>
-                  </div>
-
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {(
-                      [
-                        ["match", "Match"],
-                        ["skip", "Skip"],
-                        ["create", "Create new"],
-                      ] as const
-                    ).map(([a, label]) => (
-                      <button
-                        key={a}
-                        type="button"
-                        onClick={() =>
+                  </FieldRow>
+                  <FieldRow label="Quantity">
+                    <TextInput
+                      type="number"
+                      inputMode="decimal"
+                      min={0.01}
+                      step="any"
+                      value={line.qty}
+                      onChange={(e) => updateLine(line.key, { qty: Number(e.target.value) || 1 })}
+                      className="w-24"
+                    />
+                  </FieldRow>
+                  <FieldRow label="Paid">
+                    <TextInput
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step="0.01"
+                      value={line.price}
+                      onChange={(e) => updateLine(line.key, { price: Number(e.target.value) || 0 })}
+                      className="w-28 font-semibold"
+                    />
+                  </FieldRow>
+                  <FieldRow label="Discount">
+                    <TextInput
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step="0.01"
+                      value={line.discountAmount ?? ""}
+                      placeholder="None"
+                      onChange={(e) =>
+                        updateLine(line.key, {
+                          discountAmount: e.target.value === "" ? null : Number(e.target.value) || 0,
+                        })
+                      }
+                      className="w-28"
+                    />
+                  </FieldRow>
+                  <div className="ios-row">
+                    <div className="ios-row-inner ml-4 py-2 pr-4">
+                      <SegmentedControl<AllocAction>
+                        ariaLabel={`What to do with line ${idx + 1}`}
+                        value={line.action}
+                        onChange={(a) =>
                           updateLine(line.key, {
                             action: a,
-                            selectedItemId:
-                              a === "match"
-                                ? line.match.itemId ?? line.selectedItemId
-                                : line.selectedItemId,
+                            selectedItemId: a === "match" ? line.match.itemId ?? line.selectedItemId : line.selectedItemId,
                           })
                         }
-                        className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold ${
-                          line.action === a
-                            ? "bg-accent text-white"
-                            : "bg-surface-2 text-ink-muted"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
+                        options={[
+                          { value: "match", label: "Match" },
+                          { value: "create", label: "New Item" },
+                          { value: "skip", label: "Skip" },
+                        ]}
+                      />
+                    </div>
                   </div>
-
                   {line.action === "match" ? (
-                    <label className="mt-2 block space-y-1">
-                      <span className="text-xs text-ink-muted">Inventory item</span>
-                      <select
+                    <FieldRow label="Stock Item">
+                      <SelectInput
                         value={line.selectedItemId ?? ""}
-                        onChange={(e) =>
-                          updateLine(line.key, {
-                            selectedItemId: e.target.value || null,
-                          })
-                        }
-                        className="w-full rounded-xl border border-surface-3 bg-surface-2 px-3 py-2.5 text-sm text-ink outline-none focus:border-accent"
+                        onChange={(e) => updateLine(line.key, { selectedItemId: e.target.value || null })}
+                        className="max-w-[12rem]"
                       >
-                        <option value="">— Select —</option>
-                        {line.match.candidates.length > 0
-                          ? line.match.candidates.map((c) => (
-                              <option key={c.id} value={c.id}>
-                                {c.name} ({c.score})
-                              </option>
-                            ))
-                          : myItems
-                              .slice()
-                              .sort((a, b) => a.name.localeCompare(b.name))
-                              .map((i) => (
-                                <option key={i.id} value={i.id}>
-                                  {i.name}
-                                </option>
-                              ))}
-                        {/* Always include full list as optgroup for override */}
+                        <option value="">Choose…</option>
                         {line.match.candidates.length > 0 ? (
-                          <optgroup label="All items">
-                            {myItems
-                              .slice()
-                              .sort((a, b) => a.name.localeCompare(b.name))
-                              .map((i) => (
-                                <option key={`all-${i.id}`} value={i.id}>
-                                  {i.name}
-                                </option>
-                              ))}
+                          <optgroup label="Best matches">
+                            {line.match.candidates.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.name}
+                              </option>
+                            ))}
                           </optgroup>
                         ) : null}
-                      </select>
-                    </label>
+                        <optgroup label="All items">
+                          {sortedItems.map((i) => (
+                            <option key={`all-${i.id}`} value={i.id}>
+                              {i.name}
+                            </option>
+                          ))}
+                        </optgroup>
+                      </SelectInput>
+                    </FieldRow>
                   ) : null}
-
                   {line.action === "create" ? (
-                    <label className="mt-2 block space-y-1">
-                      <span className="text-xs text-ink-muted">Folder for new item</span>
-                      <select
-                        value={line.newFolder}
-                        onChange={(e) =>
-                          updateLine(line.key, { newFolder: e.target.value })
-                        }
-                        className="w-full rounded-xl border border-surface-3 bg-surface-2 px-3 py-2.5 text-sm text-ink outline-none focus:border-accent"
-                      >
+                    <FieldRow label="Room">
+                      <SelectInput value={line.newFolder} onChange={(e) => updateLine(line.key, { newFolder: e.target.value })}>
                         {STOCK_FOLDERS.map((f) => (
                           <option key={f} value={f}>
                             {f}
                           </option>
                         ))}
-                      </select>
-                    </label>
+                      </SelectInput>
+                    </FieldRow>
                   ) : null}
-                </li>
-              ))}
-            </ul>
+                </div>
+              </section>
+            ))
           )}
 
           {error ? (
-            <p className="rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>
+            <p className="px-4 text-subhead text-sys-red-text" role="alert">
+              {error}
+            </p>
           ) : null}
 
-          <div className="flex gap-2">
-            <button
-              type="button"
+          <div className="space-y-2">
+            <Button variant="primary" size="lg" block onClick={confirm} disabled={selectedCount === 0}>
+              {selectedCount ? `Add ${selectedCount} to Stock` : "Nothing Selected"}
+            </Button>
+            <Button
+              variant="plain"
+              block
               onClick={() => {
                 setPhase("capture");
                 setError(null);
               }}
-              className="flex-1 rounded-xl bg-surface-2 px-3 py-3.5 text-sm font-medium text-ink"
             >
-              Back
-            </button>
-            <button
-              type="button"
-              onClick={confirm}
-              disabled={lines.every((l) => l.action === "skip")}
-              className="flex-[2] rounded-xl bg-accent px-3 py-3.5 text-sm font-semibold text-white disabled:opacity-40"
-            >
-              Confirm &amp; update stock
-            </button>
+              Back to Photo
+            </Button>
           </div>
         </section>
       ) : null}
 
       {phase === "done" ? (
-        <section className="space-y-3 rounded-2xl bg-surface p-6 text-center shadow-soft">
-          <p className="text-lg font-semibold text-ink">Logged {doneCount} purchase{doneCount === 1 ? "" : "s"}</p>
-          <p className="text-sm text-ink-muted">
-            Quantities bumped, prices/vendors updated. Receipt OCR text saved locally (no image upload).
+        <section className="flex flex-col items-center rounded-card bg-bg-grouped-2 px-6 py-10 text-center">
+          <span className="text-sys-green" aria-hidden>
+            <Icon name="checkmark.circle" size={56} strokeWidth={1.6} />
+          </span>
+          <h2 className="mt-3 text-title2 text-label">
+            Logged {doneCount} {doneCount === 1 ? "Purchase" : "Purchases"}
+          </h2>
+          <p className="mt-1.5 max-w-xs text-subhead text-label-2">
+            Quantities, prices and stores are updated. The receipt text is saved on this iPhone.
           </p>
-          <button
-            type="button"
-            onClick={() => router.push("/restock")}
-            className="w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-white"
-          >
-            Back to Restock
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setPhase("capture");
-              setFile(null);
-              setPreviewUrl(null);
-              setLines([]);
-              setParsed(null);
-              setError(null);
-            }}
-            className="w-full rounded-xl bg-surface-2 px-4 py-3 text-sm font-medium text-ink"
-          >
-            Scan another
-          </button>
+          <div className="mt-6 w-full space-y-2">
+            <Button variant="primary" size="lg" block onClick={() => router.push("/restock")}>
+              Back to Restock
+            </Button>
+            <Button variant="plain" block onClick={resetCapture}>
+              Scan Another
+            </Button>
+          </div>
         </section>
       ) : null}
-
-    </div>
+    </Page>
   );
 }

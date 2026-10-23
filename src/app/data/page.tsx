@@ -1,111 +1,150 @@
 "use client";
 
-import Link from "next/link";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useInventory } from "@/context/InventoryContext";
-import { InventoryChat } from "@/components/InventoryChat";
 import { downloadBlob, itemsToCsv } from "@/lib/utils";
+import { Page } from "@/components/ui/Page";
+import { IconTile, ListRow, ListSection } from "@/components/ui/List";
+import { SegmentedControl } from "@/components/ui/Controls";
+import { ActionSheet } from "@/components/ui/Sheet";
+import { Icon } from "@/components/ui/Icon";
+
+type Appearance = "auto" | "light" | "dark";
+const THEME_KEY = "home-inventory-theme";
 
 export default function DataPage() {
   const { items, purchases, receipts, myItems, ideaItems, importJson, reset } = useInventory();
   const fileRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [appearance, setAppearance] = useState<Appearance>("auto");
+
+  useEffect(() => {
+    const v = localStorage.getItem(THEME_KEY);
+    setAppearance(v === "light" || v === "dark" ? v : "auto");
+  }, []);
+
+  useEffect(() => {
+    if (!message) return;
+    const t = window.setTimeout(() => setMessage(null), 2600);
+    return () => window.clearTimeout(t);
+  }, [message]);
+
+  const changeAppearance = (v: Appearance) => {
+    setAppearance(v);
+    if (v === "auto") localStorage.removeItem(THEME_KEY);
+    else localStorage.setItem(THEME_KEY, v);
+    const w = window as unknown as { __applyTheme?: () => void };
+    if (w.__applyTheme) w.__applyTheme();
+    else
+      document.documentElement.classList.toggle(
+        "dark",
+        v === "dark" || (v === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches)
+      );
+  };
+
+  const stamp = () => new Date().toISOString().slice(0, 10);
 
   const exportJson = () => {
-    const payload = {
-      version: 3,
-      exportedAt: new Date().toISOString(),
-      items,
-      purchases,
-      receipts,
-    };
+    const payload = { version: 3, exportedAt: new Date().toISOString(), items, purchases, receipts };
     downloadBlob(
-      `home-inventory-${new Date().toISOString().slice(0, 10)}.json`,
+      `home-inventory-${stamp()}.json`,
       new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" })
     );
-    setMessage("Exported JSON");
+    setMessage("Backup exported");
   };
 
   const exportCsv = () => {
-    downloadBlob(
-      `home-inventory-${new Date().toISOString().slice(0, 10)}.csv`,
-      new Blob([itemsToCsv(items)], { type: "text/csv" })
-    );
-    setMessage("Exported CSV");
+    downloadBlob(`home-inventory-${stamp()}.csv`, new Blob([itemsToCsv(items)], { type: "text/csv" }));
+    setMessage("Spreadsheet exported");
   };
 
   const onImport = async (file: File) => {
     try {
-      const text = await file.text();
-      const data = JSON.parse(text);
+      const data = JSON.parse(await file.text());
       importJson(data);
-      setMessage(`Imported ${file.name}`);
+      setMessage(`Restored from ${file.name}`);
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Import failed");
     }
   };
 
   return (
-    <div className="mx-auto max-w-lg space-y-4 pb-[env(safe-area-inset-bottom)]">
-      <div>
-        <h1 className="text-xl font-semibold text-ink">Data</h1>
-        <p className="text-sm text-ink-muted">
-          {myItems.length} stock · {ideaItems.length} ideas · {items.length} total (incl. archived)
-          · {purchases.length} purchase{purchases.length === 1 ? "" : "s"}. Stored in
-          localStorage, seeded from seed.json on first visit.
-        </p>
-      </div>
-
-      <section className="rounded-2xl bg-accent-soft/60 px-4 py-3 text-sm text-ink">
-        <p className="font-semibold">Install on iPhone</p>
-        <p className="mt-1 text-ink-muted">
-          Safari → Share → <strong>Add to Home Screen</strong> for a full-screen app with offline shell caching.
-          Allow microphone for voice Assist. Turn off the Silent switch if spoken replies are muted.
-        </p>
-      </section>
-
-      <Link
-        href="/assist"
-        className="flex items-center justify-between rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 px-4 py-3.5 text-white shadow-soft"
-      >
-        <div>
-          <p className="font-semibold">Open Assist (Jarvis)</p>
-          <p className="text-xs text-sky-100/90">Voice + chat · primary assistant UI</p>
-        </div>
-        <span className="text-lg" aria-hidden>
-          →
-        </span>
-      </Link>
-
-      <InventoryChat variant="compact" />
-
+    <Page title="Data & Backup" back={{ href: "/more", label: "More" }}>
       {message ? (
-        <div className="rounded-xl bg-accent-soft px-4 py-3 text-sm text-accent">{message}</div>
+        <div
+          role="status"
+          className="animate-fade-in fixed left-1/2 top-[calc(env(safe-area-inset-top)+52px)] z-[55] -translate-x-1/2 rounded-full bg-black/80 px-4 py-2.5 text-footnote font-semibold text-white backdrop-blur"
+        >
+          {message}
+        </div>
       ) : null}
 
-      <section className="space-y-2 rounded-2xl bg-surface p-4 shadow-soft">
-        <h2 className="font-semibold text-ink">Export</h2>
-        <button
-          type="button"
-          onClick={exportJson}
-          className="w-full rounded-xl bg-accent px-4 py-3 text-sm font-medium text-white"
+      <div className="space-y-7">
+        <ListSection
+          header="Storage"
+          footer="Saved on this iPhone only — not backed up to iCloud yet. Export a backup now and then."
         >
-          Export JSON
-        </button>
-        <button
-          type="button"
-          onClick={exportCsv}
-          className="w-full rounded-xl bg-surface-2 px-4 py-3 text-sm font-medium text-ink"
-        >
-          Export CSV
-        </button>
-      </section>
+          <ListRow
+            leading={<IconTile color="#636366"><Icon name="iphone" size={18} strokeWidth={2} /></IconTile>}
+            title="On This iPhone"
+            value={`${myItems.length} items`}
+          />
+          <ListRow
+            leading={<IconTile color="#bf8700"><Icon name="lightbulb" size={18} strokeWidth={2} /></IconTile>}
+            title="Ideas"
+            value={ideaItems.length}
+          />
+          <ListRow
+            leading={<IconTile color="var(--green)"><Icon name="receipt" size={18} strokeWidth={2} /></IconTile>}
+            title="Purchases Logged"
+            value={purchases.length}
+          />
+        </ListSection>
 
-      <section className="space-y-2 rounded-2xl bg-surface p-4 shadow-soft">
-        <h2 className="font-semibold text-ink">Import JSON</h2>
-        <p className="text-sm text-ink-muted">
-          Replaces current inventory with the imported file.
-        </p>
+        <ListSection header="Assistant">
+          <ListRow
+            href="/assist"
+            leading={<IconTile color="var(--tint-fill)"><Icon name="waveform" size={18} strokeWidth={2.2} /></IconTile>}
+            title="Open Assistant"
+            subtitle="Ask about stock by voice or text"
+            chevron
+          />
+        </ListSection>
+
+        <section>
+          <h2 className="px-4 pb-1.5 text-footnote font-semibold text-label-2">Appearance</h2>
+          <SegmentedControl<Appearance>
+            ariaLabel="Appearance"
+            value={appearance}
+            onChange={changeAppearance}
+            options={[
+              { value: "auto", label: "Automatic" },
+              { value: "light", label: "Light" },
+              { value: "dark", label: "Dark" },
+            ]}
+          />
+        </section>
+
+        <ListSection header="Backup" footer="Restoring replaces everything on this iPhone with the file’s contents.">
+          <ListRow
+            onClick={exportJson}
+            leading={<IconTile color="var(--tint-fill)"><Icon name="square.and.arrow.up" size={18} strokeWidth={2} /></IconTile>}
+            title="Export Backup"
+            subtitle="JSON · items, purchases, receipts"
+          />
+          <ListRow
+            onClick={exportCsv}
+            leading={<IconTile color="var(--tint-fill)"><Icon name="doc.text" size={18} strokeWidth={2} /></IconTile>}
+            title="Export Spreadsheet"
+            subtitle="CSV · items only"
+          />
+          <ListRow
+            onClick={() => fileRef.current?.click()}
+            leading={<IconTile color="#636366"><Icon name="square.and.arrow.down" size={18} strokeWidth={2} /></IconTile>}
+            title="Restore from Backup…"
+          />
+        </ListSection>
         <input
           ref={fileRef}
           type="file"
@@ -117,33 +156,38 @@ export default function DataPage() {
             e.target.value = "";
           }}
         />
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          className="w-full rounded-xl bg-surface-2 px-4 py-3 text-sm font-medium text-ink"
-        >
-          Choose JSON file…
-        </button>
-      </section>
 
-      <section className="space-y-2 rounded-2xl bg-surface p-4 shadow-soft">
-        <h2 className="font-semibold text-ink">Reset</h2>
-        <p className="text-sm text-ink-muted">
-          Restore the original 97 seed items. This overwrites local changes.
-        </p>
-        <button
-          type="button"
-          onClick={() => {
-            if (confirm("Reset inventory to seed data?")) {
-              reset();
-              setMessage("Reset to seed data");
-            }
-          }}
-          className="w-full rounded-xl bg-danger/10 px-4 py-3 text-sm font-medium text-danger"
+        <ListSection
+          header="Install"
+          footer="In Safari, tap Share, then Add to Home Screen for a full-screen app that works offline."
         >
-          Reset to seed
-        </button>
-      </section>
-    </div>
+          <ListRow
+            leading={<IconTile color="#636366"><Icon name="plus.square" size={18} strokeWidth={2} /></IconTile>}
+            title="Add to Home Screen"
+          />
+        </ListSection>
+
+        <ListSection footer="Restores the original 97 items from Sortly and removes your changes.">
+          <ListRow onClick={() => setConfirmReset(true)} title="Reset to Original Data" destructive />
+        </ListSection>
+      </div>
+
+      <ActionSheet
+        open={confirmReset}
+        onClose={() => setConfirmReset(false)}
+        title="Reset all inventory data?"
+        message="Counts, purchases and edits on this iPhone will be replaced. Export a backup first if you want to keep them."
+        actions={[
+          {
+            label: "Reset Inventory",
+            destructive: true,
+            onSelect: () => {
+              reset();
+              setMessage("Inventory reset");
+            },
+          },
+        ]}
+      />
+    </Page>
   );
 }
