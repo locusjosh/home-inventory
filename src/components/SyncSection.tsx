@@ -7,6 +7,7 @@ import { ActionSheet } from "./ui/Sheet";
 import { Icon } from "./ui/Icon";
 import { requestCode, signOut, syncNow, verifyCode, SyncAuthError } from "@/lib/sync/engine";
 import { statusText, useNow, useSyncStatus } from "@/lib/sync/useSync";
+import { PinPad } from "./PinPad";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -113,6 +114,29 @@ function SignedIn({ text, email, phase }: { text: string; email: string | null; 
 }
 
 function SignIn({ starting }: { starting: boolean }) {
+  const [mode, setMode] = useState<"pin" | "email">("pin");
+  if (mode === "pin") {
+    return (
+      <ListSection header="Sync" footer="Sign in to keep this inventory in sync on all your devices. You stay signed in until you sign out.">
+        <div className="ios-row flex w-full items-stretch">
+          <span className="flex shrink-0 items-center py-2 pl-4">
+            <SyncTile />
+          </span>
+          <span className="ios-row-inner ml-3 flex min-h-tap flex-1 items-center gap-3 py-[11px] pr-4">
+            <span className="flex-1 text-body text-label">Sync</span>
+            <span data-testid="sync-status" className="text-body text-label-2">
+              {starting ? "Starting…" : "Not signed in"}
+            </span>
+          </span>
+        </div>
+        <PinPad onUseEmail={() => setMode("email")} />
+      </ListSection>
+    );
+  }
+  return <EmailSignIn starting={starting} onUsePin={() => setMode("pin")} />;
+}
+
+function EmailSignIn({ starting, onUsePin }: { starting: boolean; onUsePin: () => void }) {
   const [step, setStep] = useState<"email" | "code">("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -172,7 +196,7 @@ function SignIn({ starting }: { starting: boolean }) {
       ) : null}
       <span className="block">
         {step === "email"
-          ? "Sign in to keep this inventory in sync on all your devices. We’ll email you a 6-digit code — no password."
+          ? "We’ll email you a 6-digit code — use this if the 4-digit code is locked or forgotten."
           : notice ?? "Enter the 6-digit code from the email."}
       </span>
     </>
@@ -216,6 +240,9 @@ function SignIn({ starting }: { starting: boolean }) {
           </FieldRow>
           <RowButton testId="sync-send-code" onClick={() => void send()} disabled={busy || !email.trim() || starting}>
             {busy ? "Sending…" : "Send Code"}
+          </RowButton>
+          <RowButton testId="sync-use-pin" onClick={onUsePin} disabled={busy}>
+            Use 4-Digit Code Instead
           </RowButton>
         </form>
       ) : (

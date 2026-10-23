@@ -51,6 +51,7 @@ export type IconName =
   | "icloud"
   | "icloud.sync"
   | "icloud.exclamation"
+  | "delete.left"
   /* item symbols */
   | "battery"
   | "drop"
@@ -271,6 +272,8 @@ export function Icon({ name, size = 22, strokeWidth = 1.8, ...rest }: Props) {
       return <svg {...common}><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 10.5v3" /></svg>;
     case "info.circle":
       return <svg {...common}><circle cx="12" cy="12" r="9" /><path d="M12 11v5.5" />{dot(12, 7.8, 1.1)}</svg>;
+    case "delete.left":
+      return <svg {...common}><path d="M9 5.5h10A1.5 1.5 0 0 1 20.5 7v10a1.5 1.5 0 0 1-1.5 1.5H9L3.5 12z" /><path d="m11.5 9.5 5 5M16.5 9.5l-5 5" /></svg>;
     case "icloud":
       return <svg {...common}><path d="M7 18.5h10.2a4.3 4.3 0 0 0 .6-8.56A5.8 5.8 0 0 0 6.6 9.1 4.7 4.7 0 0 0 7 18.5z" /></svg>;
     case "icloud.sync":

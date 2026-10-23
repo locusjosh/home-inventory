@@ -236,6 +236,44 @@ export async function verifyCode(email: string, code: string) {
   await syncNow();
 }
 
+/** Wrong PIN / locked out. `retryAfter` (seconds) is set while PIN sign-in is locked. */
+export class PinError extends Error {
+  constructor(message: string, readonly kind: "wrong" | "locked" | "other", readonly retryAfter = 0) {
+    super(message);
+  }
+}
+
+/**
+ * PIN sign-in: the pin-login Edge Function checks the PIN server-side and hands
+ * back a one-time magic-link token hash, which becomes a normal session here.
+ */
+export async function pinSignIn(pin: string) {
+  const c = await getClient();
+  let res: Response;
+  try {
+    res = await fetch(`${supabaseUrl.replace(/\/$/, "")}/functions/v1/pin-login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: supabaseAnonKey },
+      body: JSON.stringify({ pin }),
+    });
+  } catch {
+    throw new PinError("Can’t reach the sync server. Check your connection and try again.", "other");
+  }
+  const body = (await res.json().catch(() => ({}))) as { token_hash?: string; error?: string; retryAfter?: number };
+  if (res.status === 401) throw new PinError("Incorrect code.", "wrong");
+  if (res.status === 429) throw new PinError("Too many tries.", "locked", Math.max(1, Number(body.retryAfter) || 60));
+  if (!res.ok || !body.token_hash) {
+    throw new PinError(
+      res.status === 404 || res.status === 503 ? "Code sign-in isn’t set up yet. Use an email code instead." : "Couldn’t sign in. Try again in a moment.",
+      "other"
+    );
+  }
+  const { data, error } = await c.auth.verifyOtp({ token_hash: body.token_hash, type: "magiclink" });
+  if (error || !data.session) throw new PinError("Couldn’t sign in. Try again in a moment.", "other");
+  onSignedIn(data.session);
+  await syncNow();
+}
+
 export async function signOut() {
   stopRealtime();
   const c = await getClient();
@@ -333,6 +371,7 @@ async function runSync() {
   }
   const uid = session!.user.id;
   const m = getMeta();
+  const signedOutMeanwhile = () => !session || session.user.id !== uid;
   setStatus({ phase: "syncing" });
   try {
     const first = !m.firstSyncDone.includes(uid);
@@ -344,9 +383,14 @@ async function runSync() {
     m.lastSyncAt = Date.now();
     saveMeta(true);
     backoff = 0;
-    setStatus({ phase: "idle", error: null, lastSyncAt: m.lastSyncAt });
+    if (signedOutMeanwhile()) setStatus({ phase: "signed-out", lastSyncAt: m.lastSyncAt });
+    else setStatus({ phase: "idle", error: null, lastSyncAt: m.lastSyncAt });
   } catch (err) {
     console.warn("Sync failed", err);
+    if (signedOutMeanwhile()) {
+      setStatus({ phase: "signed-out", error: null });
+      return;
+    }
     if (isAuthExpired(err)) {
       setStatus({ phase: "error", error: "Your sign-in has expired. Sign out and sign in again to keep syncing." });
       return;

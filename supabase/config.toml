@@ -420,3 +420,8 @@ enabled = true
 # formatted with uppercase keywords, indent 2, max width 180, trailing commas,
 # and column/key alignment. Set to "null" to emit raw, unformatted SQL.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":180,\"commaStyle\":\"trailing\"}"
+
+# PIN sign-in. Callers aren't signed in yet, so the gateway must not require a JWT.
+# Secrets APP_PIN_HASH / APP_USER_EMAIL are set with `supabase secrets set` (never committed).
+[functions.pin-login]
+verify_jwt = false
