@@ -5,8 +5,8 @@
   "start_url": "/home-inventory/",
   "scope": "/home-inventory/",
   "display": "standalone",
-  "background_color": "#f4f6f8",
-  "theme_color": "#2563eb",
+  "background_color": "#f2f2f7",
+  "theme_color": "#f2f2f7",
   "icons": [
     {
       "src": "/home-inventory/icon-192.png",
