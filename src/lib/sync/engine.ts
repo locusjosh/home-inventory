@@ -201,41 +201,6 @@ function onLocalPhotoEvent(e: { type: "saved" | "deleted"; key: string }) {
 
 // ------------------------------------------------------------------ auth ---
 
-export class SyncAuthError extends Error {}
-
-function authMessage(err: unknown): string {
-  const e = err as { message?: string; status?: number; code?: string; name?: string };
-  const msg = (e?.message || "").toLowerCase();
-  const code = (e?.code || "").toLowerCase();
-  if (isNetworkError(err)) return "Can’t reach the sync server. Check your connection and try again.";
-  if (msg.includes("not authorized") || code === "email_address_not_authorized")
-    return "Supabase can’t email this address yet. Use the project owner’s email, or set up email sending (SMTP) in Supabase.";
-  if (code === "email_address_invalid") return "Enter a valid email address.";
-  const wait = msg.match(/after (\d+) seconds?/);
-  if (wait) return Number(wait[1]) > 1 ? `Wait ${wait[1]} seconds, then send a new code.` : "Wait a moment, then send a new code.";
-  if (e?.status === 429 || code.includes("rate_limit") || msg.includes("rate limit") || msg.includes("security purposes"))
-    return "Too many codes requested. Wait a few minutes, then try again.";
-  if (code === "otp_expired" || msg.includes("expired")) return "That code is wrong or has expired. Check it, or send a new code.";
-  if (msg.includes("invalid") && msg.includes("email")) return "Enter a valid email address.";
-  if (code === "otp_disabled" || msg.includes("signups not allowed")) return "Email sign-in isn’t turned on for this project yet.";
-  if (msg.includes("token") || msg.includes("otp")) return "That code is wrong or has expired. Check it, or send a new code.";
-  return "Couldn’t sign in. Try again in a moment.";
-}
-
-export async function requestCode(email: string) {
-  const c = await getClient();
-  const { error } = await c.auth.signInWithOtp({ email: email.trim(), options: { shouldCreateUser: true } });
-  if (error) throw new SyncAuthError(authMessage(error));
-}
-
-export async function verifyCode(email: string, code: string) {
-  const c = await getClient();
-  const { data, error } = await c.auth.verifyOtp({ email: email.trim(), token: code.trim(), type: "email" });
-  if (error || !data.session) throw new SyncAuthError(authMessage(error ?? new Error("invalid otp")));
-  onSignedIn(data.session);
-  await syncNow();
-}
-
 /** Wrong PIN / locked out. `retryAfter` (seconds) is set while PIN sign-in is locked. */
 export class PinError extends Error {
   constructor(message: string, readonly kind: "wrong" | "locked" | "other", readonly retryAfter = 0) {
@@ -264,7 +229,7 @@ export async function pinSignIn(pin: string) {
   if (res.status === 429) throw new PinError("Too many tries.", "locked", Math.max(1, Number(body.retryAfter) || 60));
   if (!res.ok || !body.token_hash) {
     throw new PinError(
-      res.status === 404 || res.status === 503 ? "Code sign-in isn’t set up yet. Use an email code instead." : "Couldn’t sign in. Try again in a moment.",
+      res.status === 404 || res.status === 503 ? "Code sign-in isn’t set up yet." : "Couldn’t sign in. Try again in a moment.",
       "other"
     );
   }

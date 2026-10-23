@@ -15,7 +15,7 @@ function fmt(s: number) {
 }
 
 /** iOS passcode-style 4-digit pad: dots, 44pt+ round keys, shake on a wrong code, locked countdown. */
-export function PinPad({ onUseEmail }: { onUseEmail: () => void }) {
+export function PinPad() {
   const [digits, setDigits] = useState("");
   const [busy, setBusy] = useState(false);
   const [shake, setShake] = useState(0);
@@ -120,7 +120,7 @@ export function PinPad({ onUseEmail }: { onUseEmail: () => void }) {
       >
         {locked ? (
           <>
-            Too many tries. Try again in <span className="tabular-nums" data-testid="pin-countdown">{fmt(remaining)}</span>, or use an email code.
+            Too many tries. Try again in <span className="tabular-nums" data-testid="pin-countdown">{fmt(remaining)}</span>. You can keep using the app on devices that are already signed in.
           </>
         ) : busy ? (
           "Checking…"
@@ -163,16 +163,6 @@ export function PinPad({ onUseEmail }: { onUseEmail: () => void }) {
             </button>
           )
         )}
-      </div>
-      <div className="mt-4 flex justify-center">
-        <button
-          type="button"
-          onClick={onUseEmail}
-          data-testid="pin-use-email"
-          className="pressable focus-ring min-h-tap rounded-lg px-3 text-body text-tint"
-        >
-          Use email code instead
-        </button>
       </div>
     </div>
   );
