@@ -52,17 +52,17 @@ begin
     execute format('drop policy if exists "own rows: delete" on public.%I', t);
     execute format('create policy "own rows: select" on public.%I for select to authenticated using (user_id = (select auth.uid()))', t);
     execute format('create policy "own rows: insert" on public.%I for insert to authenticated with check (user_id = (select auth.uid()))', t);
-    execute format('create policy "own rows: update" on public.%I for update to authenticated using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()))', t);
     execute format('revoke all on public.%I from anon', t);
     if t = 'counts' then
+      execute format('create policy "own rows: update" on public.%I for update to authenticated using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()))', t);
       execute format('create policy "own rows: delete" on public.%I for delete to authenticated using (user_id = (select auth.uid()))', t);
       execute format('grant select, insert, update, delete on public.%I to authenticated', t);
     else
-      -- The count log is append-only: no DELETE policy and no DELETE privilege for signed-in users
-      -- (an earlier local draft of this migration had one; the drop above removes it on re-apply).
-      -- Removing an entry is only ever a tombstone (deleted = true). Account deletion still cascades.
-      execute format('revoke delete, truncate on public.%I from authenticated', t);
-      execute format('grant select, insert, update on public.%I to authenticated', t);
+      -- The count log is append-only: signed-in users may only read and insert. No UPDATE or DELETE
+      -- policy and no UPDATE/DELETE/TRUNCATE privilege (earlier local drafts of this migration had them;
+      -- the drops above and this revoke correct a database where one was applied). Account deletion still cascades.
+      execute format('revoke update, delete, truncate on public.%I from authenticated', t);
+      execute format('grant select, insert on public.%I to authenticated', t);
     end if;
   end loop;
 end $$;
@@ -122,32 +122,33 @@ begin
     end if;
   end loop;
 
-  -- Entries: insert once; never overwritten. Only a tombstone can be added.
-  insert into public.count_entries as t (user_id, id, item_id, session_id, data, deleted)
-  select uid, x ->> 'id', x ->> 'item_id', x ->> 'session_id', coalesce(x -> 'data', '{}'), coalesce((x ->> 'deleted')::boolean, false)
+  -- Entries: insert once, never changed afterwards (no tombstones either).
+  insert into public.count_entries (user_id, id, item_id, session_id, data, deleted)
+  select uid, x ->> 'id', x ->> 'item_id', x ->> 'session_id', coalesce(x -> 'data', '{}'), false
     from jsonb_array_elements(coalesce(p_entries, '[]'::jsonb)) x
-  on conflict (user_id, id) do update
-    set deleted = true, updated_at = now()
-    where excluded.deleted and not t.deleted;
+  on conflict (user_id, id) do nothing;
 end $$;
 
 revoke all on function public.sync_push_counts(jsonb, jsonb) from public, anon;
 grant execute on function public.sync_push_counts(jsonb, jsonb) to authenticated;
 
--- Log entries are immutable: only a tombstone (deleted=true) may ever be added to an existing row.
+-- Log entries are immutable, for every role: no column of an existing row may change (including
+-- `deleted`), and a new row can't arrive pre-hidden. Defense in depth on top of the missing UPDATE grant.
 create or replace function public.count_entries_immutable() returns trigger
 language plpgsql set search_path = ''
 as $$
 begin
-  if new.data is distinct from old.data or new.item_id is distinct from old.item_id
-     or new.session_id is distinct from old.session_id or new.user_id is distinct from old.user_id
-     or (old.deleted and not new.deleted) then
+  if tg_op = 'INSERT' then
+    new.deleted := false;
+    return new;
+  end if;
+  if (to_jsonb(new) - 'updated_at') is distinct from (to_jsonb(old) - 'updated_at') then
     raise exception 'count log entries are immutable' using errcode = '42501';
   end if;
   return new;
 end $$;
 drop trigger if exists count_entries_immutable on public.count_entries;
-create trigger count_entries_immutable before update on public.count_entries
+create trigger count_entries_immutable before insert or update on public.count_entries
   for each row execute function public.count_entries_immutable();
 
 -- Realtime pings for the new tables (the app subscribes on a separate channel).

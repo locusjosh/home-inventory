@@ -200,14 +200,20 @@ export function CountRunner({ session, onPause }: { session: CountSession; onPau
         {item ? (
           <>
             {/* Packshot on a small plate (not a full-width white slab); shrinks on shorter screens so the stepper always clears the action bar. */}
-            <div className="flex justify-center pb-1 pt-5 [@media(max-height:639px)]:pt-3">
+            <div className="flex justify-center pb-1 pt-5 [@media(max-height:639px)]:pt-3 [@media(max-height:519px)]:hidden">
               <div className="h-[132px] w-[132px] overflow-hidden rounded-[18px] shadow-[0_1px_3px_rgba(0,0,0,0.12)] ring-1 ring-black/5 dark:ring-white/10 [@media(max-height:759px)]:h-[104px] [@media(max-height:759px)]:w-[104px] [@media(max-height:639px)]:h-[64px] [@media(max-height:639px)]:w-[64px] [@media(max-height:639px)]:rounded-[12px]">
                 <ItemImage item={item} aspect="aspect-square" rounded="rounded-none" className="h-full w-full" symbolSize={48} />
               </div>
             </div>
             <div className="px-5 pb-4 pt-3 [@media(max-height:639px)]:pb-3 [@media(max-height:639px)]:pt-2">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-subhead text-label-2">{item.folder}</p>
+                <p className="flex min-w-0 items-center gap-2 text-subhead text-label-2">
+                  {/* very short screens hide the plate above; keep a small thumbnail so the item stays recognisable */}
+                  <span className="hidden h-8 w-8 shrink-0 overflow-hidden rounded-[8px] ring-1 ring-black/5 dark:ring-white/10 [@media(max-height:519px)]:block" aria-hidden>
+                    <ItemImage item={item} aspect="aspect-square" rounded="rounded-none" className="h-full w-full" symbolSize={18} />
+                  </span>
+                  <span className="truncate">{item.folder}</span>
+                </p>
                 {st === "counted" ? (
                   <StatusTag tone="green">Counted</StatusTag>
                 ) : st === "skipped" ? (
