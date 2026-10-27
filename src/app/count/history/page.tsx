@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useCounts } from "@/lib/counts/useCounts";
-import type { CountEntry } from "@/lib/counts/model";
+import { shortDevice, type CountEntry } from "@/lib/counts/model";
 import { Page } from "@/components/ui/Page";
 import { ListRow, ListSection } from "@/components/ui/List";
 import { SegmentedControl, StatusTag } from "@/components/ui/Controls";
@@ -26,7 +26,9 @@ export default function CountHistoryPage() {
   const { sessions, entries } = useCounts();
   const [tab, setTab] = useState<Tab>("counts");
   const [limit, setLimit] = useState(150);
-  const days = useMemo(() => groupByDay(entries.slice(0, limit)), [entries, limit]);
+  // Items a count confirmed with no change (e.g. 0 → 0) are listed on that count's page, not in the change log.
+  const changes = useMemo(() => entries.filter((e) => !(e.source === "count" && e.delta === 0)), [entries]);
+  const days = useMemo(() => groupByDay(changes.slice(0, limit)), [changes, limit]);
 
   return (
     <Page title="Count History" back={{ href: "/count", label: "Count", useHistory: true }}>
@@ -63,7 +65,7 @@ export default function CountHistoryPage() {
           ) : (
             <EmptyState icon="checklist" title="No Counts Yet" description="Counts you start from the Count tab show up here." />
           )
-        ) : entries.length ? (
+        ) : changes.length ? (
           <div className="space-y-5" data-testid="count-log">
             {days.map((g) => (
               <ListSection key={g.day} header={g.day}>
@@ -72,13 +74,13 @@ export default function CountHistoryPage() {
                     key={e.id}
                     href={itemHref(e.itemId)}
                     title={e.itemName}
-                    subtitle={`${entrySourceLabel(e)} · ${fmtTime(e.at)} · ${e.deviceLabel}`}
+                    subtitle={<span className="block truncate">{`${entrySourceLabel(e)} · ${fmtTime(e.at)} · ${shortDevice(e.deviceLabel)}`}</span>}
                     trailing={<QtyChange from={e.oldQty} to={e.newQty} compact />}
                   />
                 ))}
               </ListSection>
             ))}
-            {entries.length > limit ? (
+            {changes.length > limit ? (
               <ListSection>
                 <ListRow onClick={() => setLimit((n) => n + 300)} title="Show More" tint />
               </ListSection>

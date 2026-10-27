@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useInventory } from "@/context/InventoryContext";
 import type { InventoryItem } from "@/lib/types";
-import { formatQty } from "@/lib/utils";
+import { qtyUnit } from "@/lib/utils";
 import { Page } from "@/components/ui/Page";
 import { SearchField } from "@/components/ui/Controls";
 import { Button } from "@/components/ui/Button";
@@ -41,7 +41,7 @@ export default function ArchivedPage() {
                 <ItemActionRow
                   key={item.id}
                   item={item}
-                  detail={`${item.folder === "Suggested Items" ? "Ideas" : item.folder} · ${formatQty(item.quantity)} ${item.unit}`}
+                  detail={`${item.folder === "Suggested Items" ? "Ideas" : item.folder} · ${qtyUnit(item.quantity, item.unit)}`}
                   onActions={() => setMenu(item)}
                   trailing={
                     <Button

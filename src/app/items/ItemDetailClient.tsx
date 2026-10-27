@@ -15,7 +15,7 @@ import { ActionSheet } from "@/components/ui/Sheet";
 import { Button, ButtonLink, IconButton } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { FieldRow, SelectInput, TextArea, TextInput } from "@/components/ui/Form";
-import { formatPrice, formatQty, isLowStock, isSuggested, needsCount } from "@/lib/utils";
+import { formatPrice, formatQty, isLowStock, isSuggested, isTrashed, needsCount } from "@/lib/utils";
 import { useCounts } from "@/lib/counts/useCounts";
 import { QtyChange, entrySourceLabel, fmtDay } from "@/components/count/CountBits";
 import { TRASH_DAYS } from "@/context/InventoryContext";
@@ -67,7 +67,7 @@ export default function ItemDetailPage() {
 
   const hist = getPurchasesForItem(item.id);
   const countLog = entries.filter((e) => e.itemId === item.id);
-  const trashed = Boolean(item.trashedAt);
+  const trashed = isTrashed(item);
   const trashDaysLeft = item.trashedAt
     ? Math.max(0, Math.ceil((Date.parse(item.trashedAt) + TRASH_DAYS * 86_400_000 - Date.now()) / 86_400_000))
     : 0;

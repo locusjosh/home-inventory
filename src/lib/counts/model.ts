@@ -8,7 +8,7 @@
  */
 import type { InventoryItem } from "../types";
 import { STOCK_FOLDERS } from "../types";
-import { myItems } from "../utils";
+import { isTrashed, myItems } from "../utils";
 
 export type CountStatus = "active" | "reviewing" | "cancelled" | "completed" | "reverted";
 
@@ -30,7 +30,17 @@ export type CountLine = {
   at: number;
 };
 
-export type CountTotals = { counted: number; skipped: number; changed: number; net: number; abs: number; items: number };
+/**
+ * skipped = items you explicitly skipped; notCounted = items never reached; leftOut = counted but left out
+ * (or deleted meanwhile). Older totals (before notCounted existed) stored everything not applied in `skipped`.
+ */
+export type CountTotals = { counted: number; skipped: number; changed: number; net: number; abs: number; items: number; notCounted?: number; leftOut?: number };
+
+/** Read totals the same way whether they were written by this build or an earlier one. */
+export function totalsView(t: CountTotals) {
+  if (t.notCounted == null) return { ...t, skipped: 0, notCounted: t.items - t.counted, leftOut: 0 };
+  return { ...t, notCounted: t.notCounted, leftOut: t.leftOut ?? 0 };
+}
 
 export type CountSession = {
   id: string;
@@ -69,6 +79,10 @@ export type CountEntry = {
   /** For manual changes: what caused it (edit, restock, purchase, receipt). */
   via?: string;
   note?: string;
+  /** Count entries: the item's lastCountedAt before this count (null = never counted), so Revert can put it back exactly. */
+  oldCountedAt?: string | null;
+  /** Count entries: the lastCountedAt this count wrote. */
+  newCountedAt?: string;
 };
 
 export const SCOPE_LABEL = (s: CountScope): string => {
@@ -91,7 +105,7 @@ const folderRank = (f: string) => {
 
 /** Stock items only (never Ideas / Suggested Items, never archived or deleted), room order then A–Z. */
 export function itemsForScope(all: InventoryItem[], scope: CountScope, now = Date.now()): InventoryItem[] {
-  let list = myItems(all).filter((i) => !i.trashedAt);
+  let list = myItems(all).filter((i) => !isTrashed(i));
   if (scope.kind === "rooms") {
     const set = new Set(scope.rooms);
     list = list.filter((i) => set.has(i.folder));
@@ -145,7 +159,7 @@ export function reviewRows(s: CountSession, items: InventoryItem[]): ReviewRow[]
     const l = s.lines[id];
     const st = lineState(l);
     const expected = s.expected[id] ?? it?.quantity ?? 0;
-    const current = it && !it.trashedAt ? it.quantity : null;
+    const current = it && !isTrashed(it) ? it.quantity : null;
     const counted = st === "counted" ? (l!.counted as number) : null;
     const base = current ?? expected;
     return {
@@ -165,16 +179,18 @@ export function reviewRows(s: CountSession, items: InventoryItem[]): ReviewRow[]
 }
 
 export function totalsFor(rows: ReviewRow[]): CountTotals {
-  let counted = 0, skipped = 0, changed = 0, net = 0, abs = 0;
+  let counted = 0, skipped = 0, notCounted = 0, leftOut = 0, changed = 0, net = 0, abs = 0;
   for (const r of rows) {
     if (r.state === "counted" && !r.excluded && !r.missing) {
       counted++;
       if (r.delta !== 0) changed++;
       net += r.delta;
       abs += Math.abs(r.delta);
-    } else skipped++;
+    } else if (r.state === "counted") leftOut++;
+    else if (r.state === "skipped") skipped++;
+    else notCounted++;
   }
-  return { counted, skipped, changed, net: round2(net), abs: round2(abs), items: rows.length };
+  return { counted, skipped, notCounted, leftOut, changed, net: round2(net), abs: round2(abs), items: rows.length };
 }
 
 export const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -196,6 +212,13 @@ export function deviceLabel(): string {
     (typeof window !== "undefined" && window.matchMedia?.("(display-mode: standalone)").matches);
   const app = standalone ? "Home Screen" : /CriOS|Chrome/.test(ua) ? "Chrome" : /Safari/.test(ua) ? "Safari" : "Browser";
   return `${dev} · ${app}`;
+}
+
+/** Short form for one-line subtitles: "Safari", "Home Screen", "Mac · Chrome" → "Chrome". */
+export function shortDevice(label: string | undefined | null): string {
+  if (!label) return "";
+  const parts = label.split(" · ");
+  return parts[parts.length - 1];
 }
 
 /** Sortable, unique id (time first) for sessions and log entries. */

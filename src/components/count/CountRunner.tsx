@@ -1,11 +1,25 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+
+/** True on short screens (e.g. iPhone SE in Safari): the runner uses a one-row action bar. */
+const SHORT = "(max-height: 639px)";
+function useShortScreen() {
+  return useSyncExternalStore(
+    (cb) => {
+      const m = window.matchMedia(SHORT);
+      m.addEventListener("change", cb);
+      return () => m.removeEventListener("change", cb);
+    },
+    () => window.matchMedia(SHORT).matches,
+    () => false
+  );
+}
 import { useRouter } from "next/navigation";
 import { useInventory } from "@/context/InventoryContext";
 import { useCounts } from "@/lib/counts/useCounts";
 import { lineState, sessionProgress, SCOPE_LABEL, type CountSession, type LineState } from "@/lib/counts/model";
-import { formatQty } from "@/lib/utils";
+import { formatQty, plural } from "@/lib/utils";
 import { ItemImage } from "@/components/ItemImage";
 import { Page } from "@/components/ui/Page";
 import { Button, IconButton } from "@/components/ui/Button";
@@ -35,6 +49,8 @@ export function CountRunner({ session, onPause }: { session: CountSession; onPau
   const [jump, setJump] = useState(false);
   const [menu, setMenu] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [confirmRestart, setConfirmRestart] = useState(false);
+  const compact = useShortScreen();
   const [filter, setFilter] = useState<Filter>("all");
 
   useEffect(() => {
@@ -60,6 +76,12 @@ export function CountRunner({ session, onPause }: { session: CountSession; onPau
       if (lineState(session.lines[id]) === "pending") return j;
     }
     return -1;
+  };
+
+  /** Discard this session and begin a fresh one with the same scope (the runner remounts at item 1: it is keyed by session id). */
+  const restart = () => {
+    cancel(session.id);
+    start(session.scope);
   };
 
   const toReview = () => router.push(`/count/review/?id=${encodeURIComponent(session.id)}`);
@@ -177,10 +199,13 @@ export function CountRunner({ session, onPause }: { session: CountSession; onPau
       >
         {item ? (
           <>
-            <div className="p-3 pb-0">
-              <ItemImage item={item} aspect="aspect-[2/1]" symbolSize={64} />
+            {/* Packshot on a small plate (not a full-width white slab); shrinks on shorter screens so the stepper always clears the action bar. */}
+            <div className="flex justify-center pb-1 pt-5 [@media(max-height:639px)]:pt-3">
+              <div className="h-[132px] w-[132px] overflow-hidden rounded-[18px] shadow-[0_1px_3px_rgba(0,0,0,0.12)] ring-1 ring-black/5 dark:ring-white/10 [@media(max-height:759px)]:h-[104px] [@media(max-height:759px)]:w-[104px] [@media(max-height:639px)]:h-[64px] [@media(max-height:639px)]:w-[64px] [@media(max-height:639px)]:rounded-[12px]">
+                <ItemImage item={item} aspect="aspect-square" rounded="rounded-none" className="h-full w-full" symbolSize={48} />
+              </div>
             </div>
-            <div className="px-5 pb-4 pt-3">
+            <div className="px-5 pb-4 pt-3 [@media(max-height:639px)]:pb-3 [@media(max-height:639px)]:pt-2">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-subhead text-label-2">{item.folder}</p>
                 {st === "counted" ? (
@@ -191,15 +216,15 @@ export function CountRunner({ session, onPause }: { session: CountSession; onPau
                   <span className="text-subhead tabular-nums text-label-2">Expected {formatQty(expected)}</span>
                 )}
               </div>
-              <h2 className="mt-2 text-title1 text-label" data-testid="count-item-name">{item.name}</h2>
+              <h2 className="mt-2 text-title1 text-label [@media(max-height:639px)]:mt-1 [@media(max-height:639px)]:text-title2" data-testid="count-item-name">{item.name}</h2>
               <p className="mt-1 text-subhead text-label-2">
                 {item.unit}
                 {item.minLevel != null ? ` · keep at least ${formatQty(item.minLevel)}` : ""}
                 {st !== "pending" ? ` · expected ${formatQty(expected)}` : ""}
               </p>
 
-              <div className="mt-5 flex items-center justify-center gap-5">
-                <button type="button" aria-label="Decrease" onClick={() => bump(-1)} className="pressable focus-ring flex h-16 w-16 items-center justify-center rounded-full bg-fill-3 text-tint">
+              <div className="mt-5 flex items-center justify-center gap-5 [@media(max-height:639px)]:mt-3" data-testid="count-stepper">
+                <button type="button" aria-label="Decrease" onClick={() => bump(-1)} className="pressable focus-ring flex h-16 w-16 items-center justify-center rounded-full bg-fill-3 text-tint [@media(max-height:639px)]:h-14 [@media(max-height:639px)]:w-14">
                   <Icon name="minus" size={28} strokeWidth={2.4} />
                 </button>
                 <input
@@ -216,7 +241,7 @@ export function CountRunner({ session, onPause }: { session: CountSession; onPau
                   }}
                   className="focus-ring h-16 w-24 rounded-[14px] bg-transparent text-center text-[44px] font-bold leading-none tabular-nums text-label outline-none"
                 />
-                <button type="button" aria-label="Increase" onClick={() => bump(1)} className="pressable focus-ring flex h-16 w-16 items-center justify-center rounded-full bg-fill-3 text-tint">
+                <button type="button" aria-label="Increase" onClick={() => bump(1)} className="pressable focus-ring flex h-16 w-16 items-center justify-center rounded-full bg-fill-3 text-tint [@media(max-height:639px)]:h-14 [@media(max-height:639px)]:w-14">
                   <Icon name="plus" size={28} strokeWidth={2.4} />
                 </button>
               </div>
@@ -234,42 +259,77 @@ export function CountRunner({ session, onPause }: { session: CountSession; onPau
       </section>
 
       {/* spacer so the bottom panel never covers content */}
-      <div className="h-[124px]" aria-hidden />
+      <div className={compact ? "h-[84px]" : "h-[124px]"} aria-hidden />
 
       <div
         className="ios-bar hairline-t fixed inset-x-0 z-40"
         style={{ bottom: "calc(49px + env(safe-area-inset-bottom))" }}
+        data-testid="count-panel"
       >
-        <div className="mx-auto max-w-2xl px-4 pt-3">
-          <Button variant="primary" size="lg" block onClick={confirm} disabled={!item} data-testid="count-confirm">
-            {st === "counted" ? "Update Count" : "Confirm Count"}
-          </Button>
-        </div>
-        <div className="mx-auto grid h-[52px] max-w-2xl grid-cols-3 items-center px-2">
-          <button
-            type="button"
-            onClick={() => go(idx - 1, "left")}
-            disabled={idx === 0}
-            className="pressable focus-ring flex min-h-tap items-center justify-start gap-0.5 rounded-lg px-2 text-body text-tint disabled:text-label-3"
-            data-testid="count-prev"
-          >
-            <Icon name="chevron.left" size={22} strokeWidth={2.4} />
-            Previous
-          </button>
-          <button type="button" onClick={skip} className="pressable focus-ring min-h-tap rounded-lg px-2 text-body text-tint" data-testid="count-skip">
-            Skip
-          </button>
-          <button
-            type="button"
-            onClick={() => go(idx + 1, "right")}
-            disabled={idx >= total - 1}
-            className="pressable focus-ring flex min-h-tap items-center justify-end gap-0.5 rounded-lg px-2 text-body text-tint disabled:text-label-3"
-            data-testid="count-next"
-          >
-            Next
-            <Icon name="chevron.right" size={22} strokeWidth={2.4} />
-          </button>
-        </div>
+        {compact ? (
+          // Short screens (iPhone SE in Safari): one row, so the card and stepper keep their room.
+          <div className="mx-auto grid max-w-2xl grid-cols-[44px_auto_1fr_44px] items-center gap-1 px-2 py-3">
+            <button
+              type="button"
+              onClick={() => go(idx - 1, "left")}
+              disabled={idx === 0}
+              aria-label="Previous"
+              className="pressable focus-ring flex h-11 w-11 items-center justify-center rounded-full text-tint disabled:text-label-3"
+              data-testid="count-prev"
+            >
+              <Icon name="chevron.left" size={24} strokeWidth={2.4} />
+            </button>
+            <button type="button" onClick={skip} className="pressable focus-ring min-h-tap rounded-lg px-3 text-body text-tint" data-testid="count-skip">
+              Skip
+            </button>
+            <Button variant="primary" size="lg" block onClick={confirm} disabled={!item} data-testid="count-confirm">
+              {st === "counted" ? "Update" : "Confirm"}
+            </Button>
+            <button
+              type="button"
+              onClick={() => go(idx + 1, "right")}
+              disabled={idx >= total - 1}
+              aria-label="Next"
+              className="pressable focus-ring flex h-11 w-11 items-center justify-center rounded-full text-tint disabled:text-label-3"
+              data-testid="count-next"
+            >
+              <Icon name="chevron.right" size={24} strokeWidth={2.4} />
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="mx-auto max-w-2xl px-4 pt-3">
+              <Button variant="primary" size="lg" block onClick={confirm} disabled={!item} data-testid="count-confirm">
+                {st === "counted" ? "Update Count" : "Confirm Count"}
+              </Button>
+            </div>
+            <div className="mx-auto grid h-[52px] max-w-2xl grid-cols-3 items-center px-2">
+              <button
+                type="button"
+                onClick={() => go(idx - 1, "left")}
+                disabled={idx === 0}
+                className="pressable focus-ring flex min-h-tap items-center justify-start gap-0.5 rounded-lg px-2 text-body text-tint disabled:text-label-3"
+                data-testid="count-prev"
+              >
+                <Icon name="chevron.left" size={22} strokeWidth={2.4} />
+                Previous
+              </button>
+              <button type="button" onClick={skip} className="pressable focus-ring min-h-tap rounded-lg px-2 text-body text-tint" data-testid="count-skip">
+                Skip
+              </button>
+              <button
+                type="button"
+                onClick={() => go(idx + 1, "right")}
+                disabled={idx >= total - 1}
+                className="pressable focus-ring flex min-h-tap items-center justify-end gap-0.5 rounded-lg px-2 text-body text-tint disabled:text-label-3"
+                data-testid="count-next"
+              >
+                Next
+                <Icon name="chevron.right" size={22} strokeWidth={2.4} />
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       <Sheet
@@ -291,7 +351,7 @@ export function CountRunner({ session, onPause }: { session: CountSession; onPau
               { value: "all", label: "All" },
               { value: "pending", label: `Left ${prog.pending}` },
               { value: "skipped", label: `Skipped ${prog.skipped}` },
-              { value: "counted", label: "Counted" },
+              { value: "counted", label: `Counted ${prog.counted}` },
             ]}
           />
         </div>
@@ -339,18 +399,25 @@ export function CountRunner({ session, onPause }: { session: CountSession; onPau
       <ActionSheet
         open={menu}
         onClose={() => setMenu(false)}
-        title={`${SCOPE_LABEL(session.scope)} · ${total} items`}
+        title={`${SCOPE_LABEL(session.scope)} · ${plural(total, "item")}`}
         actions={[
           { label: "Review & End Count", onSelect: toReview },
           {
-            label: "Restart Count",
+            label: "Restart Count…",
             onSelect: () => {
-              cancel(session.id);
-              start(session.scope);
+              if (done === 0) restart();
+              else setConfirmRestart(true);
             },
           },
           { label: "Cancel Count…", destructive: true, onSelect: () => setConfirmCancel(true) },
         ]}
+      />
+      <ActionSheet
+        open={confirmRestart}
+        onClose={() => setConfirmRestart(false)}
+        title="Restart this count?"
+        message={`Your ${plural(prog.counted, "counted item")}${prog.skipped ? ` and ${prog.skipped} skipped` : ""} will be discarded and the count starts again from the first item. Quantities stay as they are.`}
+        actions={[{ label: "Restart Count", destructive: true, onSelect: () => restart() }]}
       />
       <ActionSheet
         open={confirmCancel}

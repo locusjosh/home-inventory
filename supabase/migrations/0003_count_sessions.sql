@@ -53,9 +53,17 @@ begin
     execute format('create policy "own rows: select" on public.%I for select to authenticated using (user_id = (select auth.uid()))', t);
     execute format('create policy "own rows: insert" on public.%I for insert to authenticated with check (user_id = (select auth.uid()))', t);
     execute format('create policy "own rows: update" on public.%I for update to authenticated using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()))', t);
-    execute format('create policy "own rows: delete" on public.%I for delete to authenticated using (user_id = (select auth.uid()))', t);
     execute format('revoke all on public.%I from anon', t);
-    execute format('grant select, insert, update, delete on public.%I to authenticated', t);
+    if t = 'counts' then
+      execute format('create policy "own rows: delete" on public.%I for delete to authenticated using (user_id = (select auth.uid()))', t);
+      execute format('grant select, insert, update, delete on public.%I to authenticated', t);
+    else
+      -- The count log is append-only: no DELETE policy and no DELETE privilege for signed-in users
+      -- (an earlier local draft of this migration had one; the drop above removes it on re-apply).
+      -- Removing an entry is only ever a tombstone (deleted = true). Account deletion still cascades.
+      execute format('revoke delete, truncate on public.%I from authenticated', t);
+      execute format('grant select, insert, update on public.%I to authenticated', t);
+    end if;
   end loop;
 end $$;
 

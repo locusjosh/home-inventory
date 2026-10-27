@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useInventory } from "@/context/InventoryContext";
-import { downloadBlob, itemsToCsv } from "@/lib/utils";
+import { downloadBlob, itemsToCsv, plural } from "@/lib/utils";
 import { buildBackupJson } from "@/lib/backup";
 import { applyTheme, readSettings, type Appearance } from "@/lib/sync/settings";
 import { noteSettingChanged } from "@/lib/sync/engine";
@@ -218,7 +218,7 @@ export default function DataPage() {
                 onClick={() => downloadSnapshot(sn)}
                 leading={<IconTile color="#5e5ce6"><Icon name="square.and.arrow.down" size={18} strokeWidth={2} /></IconTile>}
                 title={SNAPSHOT_REASON_LABEL[sn.reason] ?? "Snapshot"}
-                subtitle={`${new Date(sn.createdAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })} · ${sn.items} items`}
+                subtitle={`${new Date(sn.createdAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })} · ${plural(sn.items, "item")}`}
                 ariaLabel={`Download snapshot from ${new Date(sn.createdAt).toLocaleString()}`}
               />
             ))}

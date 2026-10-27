@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useInventory } from "@/context/InventoryContext";
 import { useCounts } from "@/lib/counts/useCounts";
+import { shortDevice } from "@/lib/counts/model";
 import { Page } from "@/components/ui/Page";
 import { ListRow, ListSection } from "@/components/ui/List";
 import { EmptyState } from "@/components/EmptyState";
@@ -26,7 +27,7 @@ function ItemHistoryInner() {
               key={e.id}
               href={e.sessionId ? sessionHref(e.sessionId) : undefined}
               title={`${fmtDay(e.at)} · ${fmtTime(e.at)}`}
-              subtitle={`${entrySourceLabel(e)} · ${e.deviceLabel}`}
+              subtitle={<span className="block truncate">{`${entrySourceLabel(e)} · ${shortDevice(e.deviceLabel)}`}</span>}
               trailing={<QtyChange from={e.oldQty} to={e.newQty} compact />}
               chevron={Boolean(e.sessionId)}
             />

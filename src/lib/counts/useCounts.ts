@@ -3,6 +3,7 @@
 import { useCallback, useSyncExternalStore } from "react";
 import { useInventory } from "@/context/InventoryContext";
 import { getMeta } from "../sync/meta";
+import { isTrashed } from "../utils";
 import { flushManualLog } from "./manualLog";
 import {
   activeSession,
@@ -87,6 +88,7 @@ export function useCounts() {
       const label = deviceLabel();
       const deviceId = getMeta().deviceId;
       const apply = rows.filter((r) => r.state === "counted" && !r.excluded && !r.missing);
+      const byId = new Map(items.map((i) => [i.id, i]));
       applyCountResults(apply.map((r) => ({ id: r.itemId, quantity: r.counted as number })), at);
       const entries: CountEntry[] = apply.map((r) => ({
         id: ulid("ce"),
@@ -94,6 +96,8 @@ export function useCounts() {
         itemId: r.itemId,
         itemName: r.name,
         oldQty: r.current as number,
+        oldCountedAt: byId.get(r.itemId)?.lastCountedAt ?? null,
+        newCountedAt: at,
         newQty: r.counted as number,
         delta: round2((r.counted as number) - (r.current as number)),
         at,
@@ -120,30 +124,34 @@ export function useCounts() {
       flushManualLog();
       const byId = new Map(items.map((i) => [i.id, i]));
       const mine = listEntries().filter((e) => e.sessionId === s.id && e.source === "count");
-      const back: { id: string; quantity: number }[] = [];
+      const back: { id: string; quantity: number; lastCountedAt?: string | null }[] = [];
       const skipped: string[] = [];
       const at = new Date().toISOString();
       const label = deviceLabel();
       const deviceId = getMeta().deviceId;
       const entries: CountEntry[] = [];
       for (const e of mine) {
-        if (e.oldQty === e.newQty) continue;
         const it = byId.get(e.itemId);
-        if (!it || it.trashedAt || it.quantity !== e.newQty) {
-          skipped.push(e.itemName);
+        if (!it || isTrashed(it) || it.quantity !== e.newQty) {
+          if (e.oldQty !== e.newQty) skipped.push(e.itemName);
           continue;
         }
-        back.push({ id: e.itemId, quantity: e.oldQty });
-        entries.push({
-          id: ulid("ce"), sessionId: s.id, itemId: e.itemId, itemName: it.name,
-          oldQty: e.newQty, newQty: e.oldQty, delta: round2(e.oldQty - e.newQty),
-          at, deviceId, deviceLabel: label, source: "revert",
-        });
+        // Put the count date back only if nothing has re-counted the item since this count.
+        const restoreDate = "oldCountedAt" in e && e.newCountedAt !== undefined && it.lastCountedAt === e.newCountedAt;
+        if (e.oldQty === e.newQty && !restoreDate) continue;
+        back.push({ id: e.itemId, quantity: e.oldQty, ...(restoreDate ? { lastCountedAt: e.oldCountedAt ?? null } : {}) });
+        if (e.oldQty !== e.newQty) {
+          entries.push({
+            id: ulid("ce"), sessionId: s.id, itemId: e.itemId, itemName: it.name,
+            oldQty: e.newQty, newQty: e.oldQty, delta: round2(e.oldQty - e.newQty),
+            at, deviceId, deviceLabel: label, source: "revert",
+          });
+        }
       }
       revertQuantities(back);
       addEntries(entries);
       patchSession(s.id, { status: "reverted", endedAt: s.endedAt ?? at });
-      return { reverted: back.length, skipped };
+      return { reverted: entries.length, skipped };
     },
     [items, revertQuantities]
   );

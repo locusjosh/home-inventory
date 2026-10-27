@@ -24,7 +24,7 @@ function CountHome() {
   const { toast, toastNode } = useToast();
 
   if (active && active.status !== "cancelled" && !paused) {
-    return <CountRunner session={active} onPause={() => router.push("/count/?view=home")} />;
+    return <CountRunner key={active.id} session={active} onPause={() => router.push("/count/?view=home")} />;
   }
 
   const finished = sessions.filter((s) => s.status === "completed" || s.status === "reverted");

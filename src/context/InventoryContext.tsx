@@ -25,7 +25,7 @@ import { noteManualQuantity } from "@/lib/counts/manualLog";
 import { importCounts } from "@/lib/counts/store";
 import { buildBackupJson } from "@/lib/backup";
 import { saveSnapshot } from "@/lib/snapshots";
-import { ideaItems as filterIdeaItems, isLowStock, myItems as filterMyItems, needsCount, uid } from "@/lib/utils";
+import { ideaItems as filterIdeaItems, isLowStock, isTrashed, myItems as filterMyItems, needsCount, uid } from "@/lib/utils";
 
 type InventoryContextValue = {
   ready: boolean;
@@ -72,7 +72,7 @@ type InventoryContextValue = {
   /** End Count: set counted quantities + lastCountedAt in one change (not logged as Manual). */
   applyCountResults: (updates: { id: string; quantity: number }[], at: string) => void;
   /** Revert a count: put quantities back (not logged as Manual). */
-  revertQuantities: (updates: { id: string; quantity: number }[]) => void;
+  revertQuantities: (updates: { id: string; quantity: number; lastCountedAt?: string | null }[]) => void;
 };
 
 /** Recently Deleted keeps items this long before they're removed for good. */
@@ -192,11 +192,22 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
   );
 
   const revertQuantities = useCallback(
-    (updates: { id: string; quantity: number }[]) => {
+    (updates: { id: string; quantity: number; lastCountedAt?: string | null }[]) => {
       const cur = stateRef.current;
       if (!cur || !updates.length) return;
-      const map = new Map(updates.map((u) => [u.id, u.quantity]));
-      persist({ ...cur, items: cur.items.map((i) => (map.has(i.id) ? { ...i, quantity: map.get(i.id)! } : i)) }, "edit", { noLog: true });
+      const map = new Map(updates.map((u) => [u.id, u]));
+      persist(
+        {
+          ...cur,
+          items: cur.items.map((i) => {
+            const u = map.get(i.id);
+            if (!u) return i;
+            return { ...i, quantity: u.quantity, ...("lastCountedAt" in u ? { lastCountedAt: u.lastCountedAt ?? null } : {}) };
+          }),
+        },
+        "edit",
+        { noLog: true }
+      );
     },
     [persist]
   );
@@ -446,9 +457,25 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
 
   const archiveItem = useCallback(
     (id: string, archived = true) => {
+      const cur = stateRef.current;
+      const it = cur?.items.find((i) => i.id === id);
+      if (cur && it?.trashedAt && !isTrashed(it)) {
+        // A stale Recently Deleted stamp (left by an older app that un-archived it) must not turn this archive into a delete.
+        persist({
+          ...cur,
+          items: cur.items.map((i) => {
+            if (i.id !== id) return i;
+            const next: InventoryItem = { ...i, archived };
+            delete next.trashedAt;
+            delete next.restoreArchived;
+            return next;
+          }),
+        });
+        return;
+      }
       updateItem(id, { archived });
     },
-    [updateItem]
+    [updateItem, persist]
   );
 
   const deleteItem = useCallback(
@@ -508,7 +535,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!state || purgeStarted.current) return;
     const cutoff = Date.now() - TRASH_DAYS * 86_400_000;
-    const expired = state.items.filter((i) => i.trashedAt && Date.parse(i.trashedAt) < cutoff).map((i) => i.id);
+    const expired = state.items.filter((i) => isTrashed(i) && Date.parse(i.trashedAt!) < cutoff).map((i) => i.id);
     if (!expired.length) return;
     const ready = () => {
       const st = getSyncStatus();
@@ -523,7 +550,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
         const cur = stateRef.current;
         if (!cur) return;
         const now = Date.now() - TRASH_DAYS * 86_400_000;
-        const ids = new Set(cur.items.filter((i) => i.trashedAt && Date.parse(i.trashedAt) < now).map((i) => i.id));
+        const ids = new Set(cur.items.filter((i) => isTrashed(i) && Date.parse(i.trashedAt!) < now).map((i) => i.id));
         if (!ids.size) return;
         await saveSnapshot("before-purge", await buildBackupJson(cur), cur.items.length);
         const latest = stateRef.current!;
@@ -542,6 +569,45 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       if (ready()) void run();
     });
     if (ready()) void run();
+    return unsub;
+  }, [state, persist]);
+
+  // An older app version (before Recently Deleted) can un-archive a deleted item. It is then visible
+  // again, so drop the stale stamp once this device is synced: it can never be purged while visible.
+  useEffect(() => {
+    if (!state || !state.items.some((i) => i.trashedAt && !isTrashed(i))) return;
+    const ready = () => {
+      const st = getSyncStatus();
+      return !st.configured || st.phase === "off" || (st.phase === "idle" && st.pending === 0 && st.lastSyncAt != null);
+    };
+    const heal = () => {
+      const cur = stateRef.current;
+      if (!cur || !cur.items.some((i) => i.trashedAt && !isTrashed(i))) return;
+      persist(
+        {
+          ...cur,
+          items: cur.items.map((i) => {
+            if (!i.trashedAt || isTrashed(i)) return i;
+            const next: InventoryItem = { ...i };
+            delete next.trashedAt;
+            delete next.restoreArchived;
+            return next;
+          }),
+        },
+        "edit",
+        { noLog: true }
+      );
+    };
+    if (ready()) {
+      heal();
+      return;
+    }
+    const unsub = subscribeSyncStatus(() => {
+      if (ready()) {
+        unsub();
+        heal();
+      }
+    });
     return unsub;
   }, [state, persist]);
 
@@ -587,11 +653,11 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
   );
 
   const archivedItems = useMemo(
-    () => items.filter((i) => i.archived && !i.trashedAt).sort((a, b) => a.name.localeCompare(b.name)),
+    () => items.filter((i) => i.archived && !isTrashed(i)).sort((a, b) => a.name.localeCompare(b.name)),
     [items]
   );
   const trashedItems = useMemo(
-    () => items.filter((i) => i.trashedAt).sort((a, b) => (b.trashedAt ?? "").localeCompare(a.trashedAt ?? "")),
+    () => items.filter((i) => isTrashed(i)).sort((a, b) => (b.trashedAt ?? "").localeCompare(a.trashedAt ?? "")),
     [items]
   );
 
