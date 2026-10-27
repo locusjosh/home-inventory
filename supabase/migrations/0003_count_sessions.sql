@@ -56,12 +56,14 @@ begin
     if t = 'counts' then
       execute format('create policy "own rows: update" on public.%I for update to authenticated using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()))', t);
       execute format('create policy "own rows: delete" on public.%I for delete to authenticated using (user_id = (select auth.uid()))', t);
+      -- exactly these four; no TRUNCATE/REFERENCES/TRIGGER (RLS doesn't cover TRUNCATE)
+      execute format('revoke all on public.%I from authenticated', t);
       execute format('grant select, insert, update, delete on public.%I to authenticated', t);
     else
       -- The count log is append-only: signed-in users may only read and insert. No UPDATE or DELETE
-      -- policy and no UPDATE/DELETE/TRUNCATE privilege (earlier local drafts of this migration had them;
-      -- the drops above and this revoke correct a database where one was applied). Account deletion still cascades.
-      execute format('revoke update, delete, truncate on public.%I from authenticated', t);
+      -- policy and no UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER privilege (earlier local drafts of this migration
+      -- had some; the drops above and this revoke correct a database where one was applied). Account deletion still cascades.
+      execute format('revoke all on public.%I from authenticated', t);
       execute format('grant select, insert on public.%I to authenticated', t);
     end if;
   end loop;

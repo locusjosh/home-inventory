@@ -96,10 +96,10 @@ function SessionInner() {
         {finished && t ? (
           <div className="grid grid-cols-2 gap-3" data-testid="summary-totals">
             <StatTile label="Counted" value={t.counted} sub={`of ${plural(t.items, "item")}`} />
-            <StatTile label="Changed" value={t.changed} sub={t.changed === 1 ? "item updated" : "items updated"} />
+            <StatTile label="Changed" value={t.changed} sub={s.status === "reverted" && t.changed ? "undone by Revert" : t.changed === 1 ? "item updated" : "items updated"} />
             <StatTile label="Skipped" value={t.skipped} sub={t.leftOut ? `${t.leftOut} more left out` : "you skipped"} />
             <StatTile label="Not Counted" value={t.notCounted} sub="kept as they were" />
-            <StatTile label="Net Difference" value={signed(t.net)} sub="units, all items" />
+            <StatTile label="Net Difference" value={signed(t.net)} sub={s.status === "reverted" && t.net ? "undone by Revert" : "units, all items"} />
             <StatTile label="Total Off By" value={formatQty(t.abs)} sub="units, ignoring sign" />
           </div>
         ) : s.status === "cancelled" ? (
