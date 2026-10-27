@@ -43,9 +43,30 @@ import {
 } from "./meta";
 import { ack, enqueue, listBackups, listOutbox, onOutboxChange, outboxCount, saveBackup, type OutboxEntry } from "./outbox";
 import { readSettings, writeSettings, type SyncedSettings } from "./settings";
+import {
+  allCountKeys,
+  applyRemoteCounts,
+  countsCursor,
+  entryRowForPush,
+  sessionRowForPush,
+  setCountsChangeHook,
+  setCountsCursor,
+  type RemoteRow,
+} from "../counts/store";
 
 export const PHOTO_BUCKET = "item-photos";
 const TABLES = ["items", "purchases", "receipts", "photos", "settings"] as const;
+/** Count sessions + count log (migration 0003). Synced separately so a project without them still syncs everything else. */
+const COUNT_TABLES = ["counts", "count_entries"] as const;
+const isCountKey = (k: string) => k.startsWith("count:") || k.startsWith("centry:");
+/** Set when the cloud project doesn't have the count tables yet: count changes stay queued on this device. */
+let countsCloudMissing = false;
+
+// Count sessions / log entries queue themselves through this hook.
+setCountsChangeHook((keys) => {
+  if (!syncConfigured) return;
+  void enqueue(keys).then(() => syncSoon(1500));
+});
 
 // ---------------------------------------------------------------- status ---
 
@@ -111,6 +132,7 @@ let bridge: Bridge | null = null;
 let started = false;
 let session: Session | null = null;
 let channel: RealtimeChannel | null = null;
+let countsChannel: RealtimeChannel | null = null;
 
 const online = () => typeof navigator === "undefined" || navigator.onLine !== false;
 
@@ -159,12 +181,13 @@ export function initSync(b: Bridge) {
     })
     .catch((err) => setStatus({ phase: "error", error: plainError(err) }));
 
-  (window as unknown as { __hiSync?: unknown }).__hiSync = { syncNow, getSyncStatus, getMeta, outboxCount };
+  (window as unknown as { __hiSync?: unknown }).__hiSync = { syncNow, getSyncStatus, getMeta, outboxCount, countsCloudMissing: () => countsCloudMissing };
 }
 
 async function refreshPending() {
   if (!syncConfigured) return;
-  const n = await outboxCount();
+  // While the cloud has no count tables, queued count changes aren't "pending" in the user's sense.
+  const n = countsCloudMissing ? (await listOutbox()).filter((e) => !isCountKey(e.key)).length : await outboxCount();
   if (n !== status.pending) setStatus({ pending: n });
 }
 
@@ -279,13 +302,23 @@ function startRealtime(uid: string) {
     }
     ch.subscribe();
     channel = ch;
+    // Separate channel: if the count tables don't exist yet, only this one fails.
+    const cc = c.channel(`hi-counts-${uid}`);
+    for (const t of COUNT_TABLES) {
+      cc.on("postgres_changes", { event: "*", schema: "public", table: t, filter: `user_id=eq.${uid}` }, () => syncSoon(400));
+    }
+    cc.subscribe();
+    countsChannel = cc;
   });
 }
 
 function stopRealtime() {
   const ch = channel;
+  const cc = countsChannel;
   channel = null;
+  countsChannel = null;
   if (ch) void getClient().then((c) => c.removeChannel(ch));
+  if (cc) void getClient().then((c) => c.removeChannel(cc));
 }
 
 // ---------------------------------------------------------------- runner ---
@@ -384,7 +417,7 @@ async function prepareFirstSync() {
     await saveBackup({ id, createdAt: new Date().toISOString(), email: m.email, json: await buildBackupJson(state) });
   }
   const photos = await listPhotoRecordsMeta();
-  await enqueue(allLocalKeys(state, photos.map((p) => p.id)));
+  await enqueue([...allLocalKeys(state, photos.map((p) => p.id)), ...allCountKeys()]);
 }
 
 // ------------------------------------------------------------------ push ---
@@ -401,7 +434,9 @@ function settingsMeta(): FieldMeta {
 }
 
 async function push(c: SupabaseClient, uid: string) {
-  const entries = await listOutbox();
+  const all = await listOutbox();
+  const entries = all.filter((e) => !isCountKey(e.key));
+  await pushCounts(c, all.filter((e) => isCountKey(e.key)));
   if (!entries.length) return;
   const m = getMeta();
   const CHUNK = 150;
@@ -456,6 +491,81 @@ async function push(c: SupabaseClient, uid: string) {
     saveMeta(true);
     await ack(chunk as OutboxEntry[]);
   }
+}
+
+/** Missing table / function in the cloud project (migration 0003 not applied yet). */
+function isMissingSchema(err: unknown) {
+  const e = err as { code?: string; message?: string; status?: number };
+  return (
+    e?.code === "PGRST202" || e?.code === "PGRST205" || e?.code === "42P01" || e?.code === "42883" ||
+    /could not find the (function|table)|does not exist|schema cache/i.test(e?.message || "")
+  );
+}
+
+/** Count sessions + log entries → sync_push_counts. Never blocks the item sync. */
+async function pushCounts(c: SupabaseClient, entries: OutboxEntry[]) {
+  if (!entries.length) return;
+  const CHUNK = 200;
+  for (let i = 0; i < entries.length; i += CHUNK) {
+    const chunk = entries.slice(i, i + CHUNK);
+    const p_counts: unknown[] = [];
+    const p_entries: unknown[] = [];
+    for (const e of chunk) {
+      const sep = e.key.indexOf(":");
+      const kind = e.key.slice(0, sep);
+      const id = e.key.slice(sep + 1);
+      if (kind === "count") {
+        const r = sessionRowForPush(id);
+        if (r) p_counts.push(r);
+      } else {
+        const r = entryRowForPush(id);
+        if (r) p_entries.push(r);
+      }
+    }
+    if (p_counts.length + p_entries.length) {
+      const { error } = await c.rpc("sync_push_counts", { p_counts, p_entries });
+      if (error) {
+        if (isMissingSchema(error)) {
+          // Keep them queued; they go up once the cloud has the count tables.
+          countsCloudMissing = true;
+          return;
+        }
+        throw error;
+      }
+    }
+    countsCloudMissing = false;
+    await ack(chunk);
+  }
+}
+
+async function pullCounts(c: SupabaseClient, uid: string) {
+  const cursor = countsCursor(uid);
+  const since = cursor ? new Date(Date.parse(cursor) - 60_000).toISOString() : null;
+  const rows: Record<string, Row[]> = {};
+  let max = cursor ? Date.parse(cursor) : 0;
+  let maxStr = cursor;
+  try {
+    for (const t of COUNT_TABLES) {
+      rows[t] = await fetchSince(c, uid, t, since);
+      for (const r of rows[t]) {
+        const ts = Date.parse(r.updated_at);
+        if (ts > max) {
+          max = ts;
+          maxStr = r.updated_at;
+        }
+      }
+    }
+  } catch (err) {
+    if (isMissingSchema(err)) {
+      countsCloudMissing = true;
+      return;
+    }
+    throw err;
+  }
+  countsCloudMissing = false;
+  const repush = applyRemoteCounts((rows.counts ?? []) as RemoteRow[], (rows.count_entries ?? []) as RemoteRow[]);
+  setCountsCursor(maxStr ?? null);
+  if (repush.length) await enqueue(repush);
 }
 
 async function sha256Hex(buf: ArrayBuffer) {
@@ -533,6 +643,7 @@ async function pull(c: SupabaseClient, uid: string) {
   for (const id of sideEffects.deletedItems) await deletePhotosForItem(id, { fromSync: true });
   for (const key of sideEffects.deletedPhotos) await deletePhoto(key, { fromSync: true });
   setRemotePhotoKeys(Object.keys(m.remotePhotos));
+  await pullCounts(c, uid);
 }
 
 /** Synchronous merge of pulled rows into the latest local state. */

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useInventory } from "@/context/InventoryContext";
-import { downloadBlob, itemsToCsv } from "@/lib/utils";
+import { downloadBlob, itemsToCsv, plural } from "@/lib/utils";
 import { buildBackupJson } from "@/lib/backup";
 import { applyTheme, readSettings, type Appearance } from "@/lib/sync/settings";
 import { noteSettingChanged } from "@/lib/sync/engine";
@@ -13,6 +13,7 @@ import { IconTile, ListRow, ListSection } from "@/components/ui/List";
 import { SegmentedControl } from "@/components/ui/Controls";
 import { ActionSheet } from "@/components/ui/Sheet";
 import { Icon } from "@/components/ui/Icon";
+import { listSnapshots, SNAPSHOT_REASON_LABEL, type Snapshot } from "@/lib/snapshots";
 
 
 export default function DataPage() {
@@ -21,6 +22,7 @@ export default function DataPage() {
   const [confirmReset, setConfirmReset] = useState(false);
   const [appearance, setAppearance] = useState<Appearance>("auto");
   const [backups, setBackups] = useState<BackupRecord[]>([]);
+  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const sync = useSyncStatus();
   const synced = sync.configured && sync.phase !== "signed-out" && sync.phase !== "starting";
 
@@ -29,6 +31,10 @@ export default function DataPage() {
     read();
     window.addEventListener("hi-settings-changed", read);
     return () => window.removeEventListener("hi-settings-changed", read);
+  }, []);
+
+  useEffect(() => {
+    void listSnapshots().then(setSnapshots).catch(() => setSnapshots([]));
   }, []);
 
   useEffect(() => {
@@ -60,6 +66,11 @@ export default function DataPage() {
   const downloadPreSync = (b: BackupRecord) => {
     downloadBlob(`home-inventory-before-sync-${b.createdAt.slice(0, 10)}.json`, new Blob([b.json], { type: "application/json" }));
     setMessage("Backup downloaded");
+  };
+
+  const downloadSnapshot = (s: Snapshot) => {
+    downloadBlob(`home-inventory-snapshot-${s.createdAt.slice(0, 10)}.json`, new Blob([s.json], { type: "application/json" }));
+    setMessage("Snapshot downloaded");
   };
 
   const exportCsv = () => {
@@ -150,7 +161,7 @@ export default function DataPage() {
             onClick={() => void exportJson()}
             leading={<IconTile color="#0071e3"><Icon name="square.and.arrow.up" size={18} strokeWidth={2} /></IconTile>}
             title="Export Backup"
-            subtitle="JSON · items, photos, purchases, receipts"
+            subtitle="JSON · items, photos, purchases, receipts, count log"
           />
           <ListRow
             onClick={exportCsv}
@@ -191,6 +202,24 @@ export default function DataPage() {
                 title="Download Pre-Sync Backup"
                 subtitle={`${new Date(b.createdAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}${b.email ? ` · ${b.email}` : ""}`}
                 ariaLabel={`Download pre-sync backup from ${new Date(b.createdAt).toLocaleString()}`}
+              />
+            ))}
+          </ListSection>
+        ) : null}
+
+        {snapshots.length ? (
+          <ListSection
+            header="Automatic Snapshots"
+            footer="Full copies of this iPhone’s data, saved before app updates change how data is stored and before Recently Deleted is emptied. Restore one with Restore from Backup."
+          >
+            {snapshots.map((sn) => (
+              <ListRow
+                key={sn.id}
+                onClick={() => downloadSnapshot(sn)}
+                leading={<IconTile color="#5e5ce6"><Icon name="square.and.arrow.down" size={18} strokeWidth={2} /></IconTile>}
+                title={SNAPSHOT_REASON_LABEL[sn.reason] ?? "Snapshot"}
+                subtitle={`${new Date(sn.createdAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })} · ${plural(sn.items, "item")}`}
+                ariaLabel={`Download snapshot from ${new Date(sn.createdAt).toLocaleString()}`}
               />
             ))}
           </ListSection>

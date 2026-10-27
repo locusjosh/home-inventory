@@ -1,191 +1,119 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useInventory } from "@/context/InventoryContext";
-import { ItemImage } from "@/components/ItemImage";
-import { EmptyState } from "@/components/EmptyState";
+import { useCounts } from "@/lib/counts/useCounts";
+import { sessionProgress, SCOPE_LABEL, type CountScope } from "@/lib/counts/model";
 import { Page } from "@/components/ui/Page";
-import { ChipBar, Switch } from "@/components/ui/Controls";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
-import { COUNT_FOLDERS } from "@/lib/types";
-import { formatQty } from "@/lib/utils";
+import { CountBadge, IconTile, ListRow, ListSection } from "@/components/ui/List";
+import { StartCountSheet } from "@/components/count/StartCountSheet";
+import { CountRunner } from "@/components/count/CountRunner";
+import { fmtDay, sessionHref, sessionSummary, sessionTitle, useToast } from "@/components/count/CountBits";
 
-function CountModeInner() {
+function CountHome() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const folderParam = searchParams.get("folder");
-  const { myItems, confirmCount, folderCounts } = useInventory();
+  const params = useSearchParams();
+  const paused = params.get("view") === "home";
+  const { needsCountItems, myItems } = useInventory();
+  const { sessions, active, start } = useCounts();
+  const [startOpen, setStartOpen] = useState(false);
+  const { toast, toastNode } = useToast();
 
-  const foldersWithItems = useMemo(
-    () => COUNT_FOLDERS.filter((f) => (folderCounts[f] ?? 0) > 0),
-    [folderCounts]
-  );
+  if (active && active.status !== "cancelled" && !paused) {
+    return <CountRunner key={active.id} session={active} onPause={() => router.push("/count/?view=home")} />;
+  }
 
-  const initialFolder = useMemo(() => {
-    if (folderParam && foldersWithItems.includes(folderParam as (typeof COUNT_FOLDERS)[number])) {
-      return folderParam;
-    }
-    return foldersWithItems[0] ?? "Bathroom";
-  }, [folderParam, foldersWithItems]);
+  const finished = sessions.filter((s) => s.status === "completed" || s.status === "reverted");
+  const last = finished[0];
+  const recent = sessions.filter((s) => s.id !== active?.id).slice(0, 3);
 
-  const [folder, setFolder] = useState(initialFolder);
-  const [index, setIndex] = useState(0);
-  const [draftQty, setDraftQty] = useState(0);
-  const [uncountedOnly, setUncountedOnly] = useState(false);
-
-  useEffect(() => setFolder(initialFolder), [initialFolder]);
-
-  const roomItems = useMemo(() => {
-    let list = myItems.filter((i) => i.folder === folder);
-    if (uncountedOnly) list = list.filter((i) => !i.lastCountedAt);
-    return [...list].sort((a, b) => a.name.localeCompare(b.name));
-  }, [myItems, folder, uncountedOnly]);
-
-  const current = roomItems[index] ?? null;
-
-  useEffect(() => setIndex(0), [folder, uncountedOnly]);
-
-  useEffect(() => {
-    setDraftQty(current ? current.quantity : 0);
-  }, [current?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const selectFolder = useCallback(
-    (f: string) => {
-      setFolder(f);
-      router.replace(`/count/?folder=${encodeURIComponent(f)}`, { scroll: false });
-    },
-    [router]
-  );
-
-  const goNextRoom = useCallback(() => {
-    const idx = foldersWithItems.indexOf(folder as (typeof COUNT_FOLDERS)[number]);
-    const next = foldersWithItems[(idx + 1) % Math.max(foldersWithItems.length, 1)];
-    if (next && next !== folder) selectFolder(next);
-  }, [folder, foldersWithItems, selectFolder]);
-
-  const confirmAndNext = () => {
-    if (!current) return;
-    confirmCount(current.id, draftQty);
-    if (index + 1 < roomItems.length) setIndex(index + 1);
-    else goNextRoom();
+  const begin = (scope: CountScope) => {
+    const s = start(scope);
+    setStartOpen(false);
+    if (!s) toast("Nothing to count");
+    else router.replace("/count/");
   };
-
-  const skip = () => {
-    if (index + 1 < roomItems.length) setIndex(index + 1);
-    else goNextRoom();
-  };
-
-  const bump = (delta: number) => setDraftQty((q) => Math.max(0, q + delta));
-  const progress = roomItems.length ? (index + 1) / roomItems.length : 0;
 
   return (
-    <Page title="Count" subtitle="Room by room, one item at a time">
-      <ChipBar
-        value={folder}
-        onChange={selectFolder}
-        ariaLabel="Room"
-        options={foldersWithItems.map((f) => ({ value: f, label: f, count: folderCounts[f] ?? 0 }))}
-      />
+    <Page title="Count" subtitle="Start a count, step through each item, then review before anything changes">
+      {toastNode}
+      <div className="space-y-6">
+        {active ? (
+          <section className="overflow-hidden rounded-card bg-bg-grouped-2 p-4" data-testid="resume-card">
+            <div className="flex items-center gap-3">
+              <IconTile color="var(--tint-fill)" size={40}>
+                <Icon name="checklist" size={22} strokeWidth={2} />
+              </IconTile>
+              <div className="min-w-0 flex-1">
+                <p className="text-headline text-label">Count in Progress</p>
+                <p className="text-subhead tabular-nums text-label-2">
+                  {SCOPE_LABEL(active.scope)} · {sessionProgress(active).counted + sessionProgress(active).skipped} of {active.itemIds.length}
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 h-1 overflow-hidden rounded-full bg-fill-3" aria-hidden>
+              <div
+                className="h-full rounded-full bg-tint"
+                style={{ width: `${((sessionProgress(active).counted + sessionProgress(active).skipped) / Math.max(1, active.itemIds.length)) * 100}%` }}
+              />
+            </div>
+            <Button variant="primary" size="lg" block className="mt-4" onClick={() => router.push("/count/")} data-testid="resume-count">
+              Resume Count
+            </Button>
+          </section>
+        ) : (
+          <section className="overflow-hidden rounded-card bg-bg-grouped-2 px-5 pb-5 pt-6 text-center">
+            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-tint-soft text-tint" aria-hidden>
+              <Icon name="checklist" size={30} strokeWidth={2} />
+            </span>
+            <p className="mt-3 text-title3 text-label">{last ? `Last count ${fmtDay(last.endedAt ?? last.startedAt)}` : "No counts yet"}</p>
+            <p className="mt-1 text-subhead text-label-2">
+              {last ? sessionSummary(last) : `${myItems.length} items across your rooms`}
+            </p>
+            <Button variant="primary" size="lg" block className="mt-5" onClick={() => setStartOpen(true)} data-testid="start-count">
+              Start Count
+            </Button>
+          </section>
+        )}
 
-      <div className="ios-group mt-4 overflow-hidden rounded-card bg-bg-grouped-2">
-        <label className="ios-row flex cursor-pointer items-center">
-          <span className="ios-row-inner ml-4 flex min-h-tap flex-1 items-center justify-between gap-3 py-1.5 pr-4">
-            <span className="text-body text-label">Uncounted only</span>
-            <Switch checked={uncountedOnly} onChange={setUncountedOnly} label="Uncounted only" />
-          </span>
-        </label>
+        {needsCountItems.length ? (
+          <ListSection footer="Items with a minimum that were never counted or are at zero.">
+            <ListRow
+              leading={<IconTile color="#0071e3"><Icon name="info.circle" size={18} strokeWidth={2} /></IconTile>}
+              title="Need a Count"
+              trailing={<CountBadge count={needsCountItems.length} tone="red" />}
+            />
+          </ListSection>
+        ) : null}
+
+        <ListSection
+          header="History"
+          headerAction={
+            sessions.length ? (
+              <Link href="/count/history" className="focus-ring -my-2 flex min-h-tap items-center rounded px-1 text-subhead text-tint">
+                See All
+              </Link>
+            ) : undefined
+          }
+        >
+          {recent.map((s) => (
+            <ListRow key={s.id} href={sessionHref(s.id)} title={sessionTitle(s)} subtitle={sessionSummary(s)} chevron />
+          ))}
+          <ListRow
+            href="/count/history"
+            leading={<IconTile color="#636366"><Icon name="list" size={18} strokeWidth={2} /></IconTile>}
+            title="Count Log"
+            subtitle="Every count and quantity change"
+            chevron
+          />
+        </ListSection>
       </div>
 
-      {current ? (
-        <section className="mt-4 overflow-hidden rounded-card bg-bg-grouped-2" aria-live="polite">
-          <div className="p-3 pb-0">
-            <ItemImage item={current} aspect="aspect-[2/1]" symbolSize={64} />
-          </div>
-          <div className="px-5 pb-3 pt-3">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-subhead tabular-nums text-label-2">
-                {index + 1} of {roomItems.length} · {folder}
-              </p>
-              <p className="text-subhead text-label-2">
-                {current.lastCountedAt
-                  ? `Counted ${new Date(current.lastCountedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
-                  : "Never counted"}
-              </p>
-            </div>
-            <div className="mt-2 h-1 overflow-hidden rounded-full bg-fill-3" aria-hidden>
-              <div className="h-full rounded-full bg-tint transition-all" style={{ width: `${progress * 100}%` }} />
-            </div>
-            <h2 className="mt-4 text-title1 text-label">{current.name}</h2>
-            <p className="mt-1 text-subhead text-label-2">
-              {current.unit}
-              {current.minLevel != null ? ` · keep at least ${current.minLevel}` : ""}
-            </p>
-
-            <div className="mt-5 flex items-center justify-center gap-5">
-              <button
-                type="button"
-                aria-label="Decrease"
-                onClick={() => bump(-1)}
-                className="pressable focus-ring flex h-16 w-16 items-center justify-center rounded-full bg-fill-3 text-tint"
-              >
-                <Icon name="minus" size={28} strokeWidth={2.4} />
-              </button>
-              <input
-                type="number"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                min={0}
-                aria-label="Counted quantity"
-                value={formatQty(draftQty)}
-                onChange={(e) => {
-                  const n = parseFloat(e.target.value);
-                  setDraftQty(Number.isNaN(n) ? 0 : Math.max(0, n));
-                }}
-                className="focus-ring h-16 w-24 rounded-[14px] bg-transparent text-center text-[44px] font-bold leading-none tabular-nums text-label outline-none"
-              />
-              <button
-                type="button"
-                aria-label="Increase"
-                onClick={() => bump(1)}
-                className="pressable focus-ring flex h-16 w-16 items-center justify-center rounded-full bg-fill-3 text-tint"
-              >
-                <Icon name="plus" size={28} strokeWidth={2.4} />
-              </button>
-            </div>
-
-            <Button variant="primary" size="lg" block className="mt-5" onClick={confirmAndNext}>
-              Confirm Count
-            </Button>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <Button variant="plain" onClick={skip}>
-                Skip
-              </Button>
-              <Button
-                variant="plain"
-                onClick={() => {
-                  confirmCount(current.id, draftQty);
-                  goNextRoom();
-                }}
-              >
-                Finish Room
-              </Button>
-            </div>
-          </div>
-        </section>
-      ) : (
-        <EmptyState
-          icon="checkmark.circle"
-          title={uncountedOnly ? `${folder} Is Counted` : `No Items in ${folder}`}
-          description={uncountedOnly ? "Every item in this room has a count." : undefined}
-          action={
-            <Button variant="secondary" onClick={goNextRoom}>
-              Next Room
-            </Button>
-          }
-        />
-      )}
+      <StartCountSheet open={startOpen} onClose={() => setStartOpen(false)} onStart={begin} />
     </Page>
   );
 }
@@ -193,7 +121,7 @@ function CountModeInner() {
 export default function CountPage() {
   return (
     <Suspense fallback={null}>
-      <CountModeInner />
+      <CountHome />
     </Suspense>
   );
 }

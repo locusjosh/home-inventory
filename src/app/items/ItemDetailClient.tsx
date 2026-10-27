@@ -15,14 +15,18 @@ import { ActionSheet } from "@/components/ui/Sheet";
 import { Button, ButtonLink, IconButton } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { FieldRow, SelectInput, TextArea, TextInput } from "@/components/ui/Form";
-import { formatPrice, formatQty, isLowStock, isSuggested, needsCount } from "@/lib/utils";
+import { formatPrice, formatQty, isLowStock, isSuggested, isTrashed, needsCount } from "@/lib/utils";
+import { useCounts } from "@/lib/counts/useCounts";
+import { QtyChange, entrySourceLabel, fmtDay } from "@/components/count/CountBits";
+import { TRASH_DAYS } from "@/context/InventoryContext";
 
 export default function ItemDetailPage() {
   const searchParams = useSearchParams();
   const id = searchParams.get("id") ?? "";
   const router = useRouter();
-  const { items, updateItem, updateQuantity, archiveItem, deleteItem, logPurchase, getPurchasesForItem } =
+  const { items, updateItem, updateQuantity, archiveItem, deleteItem, trashItem, recoverItem, logPurchase, getPurchasesForItem } =
     useInventory();
+  const { entries } = useCounts();
   const item = items.find((i) => i.id === id);
 
   const [attrName, setAttrName] = useState("");
@@ -62,6 +66,11 @@ export default function ItemDetailPage() {
   };
 
   const hist = getPurchasesForItem(item.id);
+  const countLog = entries.filter((e) => e.itemId === item.id);
+  const trashed = isTrashed(item);
+  const trashDaysLeft = item.trashedAt
+    ? Math.max(0, Math.ceil((Date.parse(item.trashedAt) + TRASH_DAYS * 86_400_000 - Date.now()) / 86_400_000))
+    : 0;
   const low = isLowStock(item);
   const needs = needsCount(item);
   const idea = isSuggested(item);
@@ -78,6 +87,15 @@ export default function ItemDetailPage() {
       }
     >
       <div className="space-y-6 pt-2">
+        {trashed ? (
+          <div className="flex items-center gap-3 rounded-card bg-bg-grouped-2 px-4 py-3" data-testid="trashed-banner">
+            <div className="min-w-0 flex-1">
+              <p className="text-headline text-label">In Recently Deleted</p>
+              <p className="text-subhead text-label-2">{trashDaysLeft <= 1 ? "Deletes within a day" : `Deletes in ${trashDaysLeft} days`}</p>
+            </div>
+            <Button variant="secondary" size="sm" onClick={() => recoverItem(item.id)}>Recover</Button>
+          </div>
+        ) : null}
         <div className="overflow-hidden rounded-card bg-bg-grouped-2 p-3">
           <ItemPhotoEditor item={item} />
           <div className="px-1 pb-1 pt-3">
@@ -86,7 +104,7 @@ export default function ItemDetailPage() {
               <span className="text-subhead text-label-2">{item.folder}</span>
               {low ? <StatusTag tone="orange">Below minimum</StatusTag> : null}
               {needs ? <StatusTag tone="blue">Needs a count</StatusTag> : null}
-              {item.archived ? <StatusTag tone="gray">Archived</StatusTag> : null}
+              {item.archived && !trashed ? <StatusTag tone="gray">Archived</StatusTag> : null}
             </div>
             {item.productUrl ? <OpenProductLink url={item.productUrl} className="mt-3" /> : null}
           </div>
@@ -260,24 +278,48 @@ export default function ItemDetailPage() {
           </div>
         </ListSection>
 
+        <ListSection
+          header="Count History"
+          footer={!countLog.length ? (item.lastCountedAt ? `Last counted ${fmtDay(item.lastCountedAt, true)}.` : "Not counted yet.") : undefined}
+        >
+          {countLog.slice(0, 3).map((e) => (
+            <ListRow
+              key={e.id}
+              title={fmtDay(e.at)}
+              subtitle={entrySourceLabel(e)}
+              trailing={<QtyChange from={e.oldQty} to={e.newQty} compact />}
+            />
+          ))}
+          <ListRow href={`/count/item/?id=${encodeURIComponent(item.id)}`} title={countLog.length > 3 ? `Show All ${countLog.length}` : "Show History"} tint chevron />
+        </ListSection>
+
         <ListSection>
-          <ListRow onClick={() => archiveItem(item.id, !item.archived)} title={item.archived ? "Unarchive Item" : "Archive Item"} tint />
-          <ListRow onClick={() => setConfirmDelete(true)} title="Delete Item" destructive />
+          {trashed ? (
+            <ListRow onClick={() => recoverItem(item.id)} title="Recover Item" tint />
+          ) : (
+            <ListRow onClick={() => archiveItem(item.id, !item.archived)} title={item.archived ? "Unarchive Item" : "Archive Item"} tint />
+          )}
+          <ListRow onClick={() => setConfirmDelete(true)} title={trashed ? "Delete Now" : "Delete Item"} destructive />
         </ListSection>
       </div>
 
       <ActionSheet
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
-        title={`Delete “${item.name}”?`}
-        message="This can’t be undone."
+        title={trashed ? `Delete “${item.name}” now?` : `Delete “${item.name}”?`}
+        message={
+          trashed
+            ? "This removes the item, its photos and its purchase history from all your devices. It can’t be undone."
+            : `It moves to Recently Deleted, where you can recover it for ${TRASH_DAYS} days.`
+        }
         actions={[
           {
-            label: "Delete Item",
+            label: trashed ? "Delete Now" : "Delete Item",
             destructive: true,
             onSelect: () => {
-              deleteItem(item.id);
-              router.push("/");
+              if (trashed) deleteItem(item.id);
+              else trashItem(item.id);
+              router.push(trashed ? "/more/deleted" : idea ? "/ideas" : "/");
             },
           },
         ]}

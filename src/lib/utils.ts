@@ -15,6 +15,14 @@ export function ideaItems(items: InventoryItem[]): InventoryItem[] {
   return items.filter((i) => !i.archived && isSuggested(i));
 }
 
+/**
+ * In Recently Deleted. A trashed item is always also archived (so older app versions hide it);
+ * if an older version un-archives it, the stale trashedAt no longer counts: the item is back.
+ */
+export function isTrashed(item: Pick<InventoryItem, "trashedAt" | "archived">): boolean {
+  return Boolean(item.trashedAt) && item.archived === true;
+}
+
 export function isLowStock(item: InventoryItem): boolean {
   if (item.archived || isSuggested(item)) return false;
   if (item.minLevel === null || item.minLevel === undefined) return false;
@@ -37,6 +45,26 @@ export function needToBuy(item: InventoryItem): number {
 export function formatQty(n: number): string {
   if (Number.isInteger(n)) return String(n);
   return String(Math.round(n * 100) / 100);
+}
+
+/** "items" → "item" when there is exactly one (simple English plural rules; unknown words are left as-is). */
+export function singularize(word: string): string {
+  if (/ies$/i.test(word)) return word.slice(0, -3) + "y";
+  if (/(ches|shes|sses|xes)$/i.test(word)) return word.slice(0, -2);
+  if (/[^s]s$/i.test(word)) return word.slice(0, -1);
+  return word;
+}
+
+/** "1 unit", "0 units", "2.5 units", "1 box" … `unit` is stored plural ("units", "rolls"). */
+export function qtyUnit(n: number, unit: string | null | undefined): string {
+  const u = (unit || "").trim();
+  if (!u) return formatQty(n);
+  return `${formatQty(n)} ${n === 1 ? singularize(u) : u}`;
+}
+
+/** "1 item", "3 items". */
+export function plural(n: number, one: string, many = `${one}s`): string {
+  return `${formatQty(n)} ${n === 1 ? one : many}`;
 }
 
 export function formatPrice(n: number | null | undefined): string {
