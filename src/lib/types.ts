@@ -58,6 +58,14 @@ export type InventoryItem = {
    * or IndexedDB photo keys. Undefined = legacy/default order, derived at runtime.
    */
   photoOrder?: string[];
+  /**
+   * Set when the item is moved to Recently Deleted (ISO time). The item also
+   * gets `archived: true`, so app versions that predate this field keep hiding it.
+   * Present only while the item is in Recently Deleted.
+   */
+  trashedAt?: string | null;
+  /** Present (true) only when the item was already archived before it was deleted; Recover puts it back there. */
+  restoreArchived?: boolean;
 };
 
 export type Purchase = {

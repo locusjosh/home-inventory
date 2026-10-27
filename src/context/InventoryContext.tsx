@@ -19,8 +19,12 @@ import type {
 } from "@/lib/types";
 import { importState, loadState, resetToSeed, saveState } from "@/lib/storage";
 import { clearPhotos, deletePhotosForItem, importPhotos } from "@/lib/photoStore";
-import { initSync, noteLocalChange } from "@/lib/sync/engine";
+import { getSyncStatus, initSync, noteLocalChange, subscribeSyncStatus } from "@/lib/sync/engine";
 import type { ChangeMode } from "@/lib/sync/meta";
+import { noteManualQuantity } from "@/lib/counts/manualLog";
+import { importCounts } from "@/lib/counts/store";
+import { buildBackupJson } from "@/lib/backup";
+import { saveSnapshot } from "@/lib/snapshots";
 import { ideaItems as filterIdeaItems, isLowStock, myItems as filterMyItems, needsCount, uid } from "@/lib/utils";
 
 type InventoryContextValue = {
@@ -57,7 +61,24 @@ type InventoryContextValue = {
   reset: () => void;
   importJson: (data: unknown) => Promise<number>;
   replaceAll: (items: InventoryItem[]) => void;
+  /** Archived items that are not in Recently Deleted. */
+  archivedItems: InventoryItem[];
+  /** Items in Recently Deleted (newest first). */
+  trashedItems: InventoryItem[];
+  /** Move to Recently Deleted (kept 30 days, photos and purchases intact). */
+  trashItem: (id: string) => void;
+  /** Bring an item back from Recently Deleted. */
+  recoverItem: (id: string) => void;
+  /** End Count: set counted quantities + lastCountedAt in one change (not logged as Manual). */
+  applyCountResults: (updates: { id: string; quantity: number }[], at: string) => void;
+  /** Revert a count: put quantities back (not logged as Manual). */
+  revertQuantities: (updates: { id: string; quantity: number }[]) => void;
 };
+
+/** Recently Deleted keeps items this long before they're removed for good. */
+export const TRASH_DAYS = 30;
+const SNAPSHOT_FLAG = "home-inventory-snapshot-v6";
+type PersistOpts = { via?: string; noLog?: boolean };
 
 const InventoryContext = createContext<InventoryContextValue | null>(null);
 
@@ -81,13 +102,37 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   /** Every local change goes through here: saved locally first, then stamped + queued for sync. */
-  const persist = useCallback((next: InventoryState, mode: ChangeMode = "edit") => {
+  const persist = useCallback((next: InventoryState, mode: ChangeMode = "edit", opts: PersistOpts = {}) => {
     const prev = stateRef.current;
     stateRef.current = next;
     setState(next);
     saveState(next);
     noteLocalChange(prev, next, mode);
+    // Count log: quantity changes made outside a count are logged as "Manual".
+    if (mode === "edit" && !opts.noLog && prev) {
+      const before = new Map(prev.items.map((i) => [i.id, i]));
+      for (const it of next.items) {
+        const b = before.get(it.id);
+        if (b && b.quantity !== it.quantity) noteManualQuantity(it.id, it.name, b.quantity, it.quantity, opts.via ?? "edit");
+      }
+    }
   }, []);
+
+  // One automatic full snapshot on the first launch of this version, before it
+  // changes anything (kept on this device; Data & Backup can download it).
+  const snapshotReady = useRef<Promise<void> | null>(null);
+  useEffect(() => {
+    if (!state || snapshotReady.current) return;
+    snapshotReady.current = (async () => {
+      try {
+        if (localStorage.getItem(SNAPSHOT_FLAG)) return;
+        await saveSnapshot("format-v6", await buildBackupJson(state), state.items.length);
+        localStorage.setItem(SNAPSHOT_FLAG, new Date().toISOString());
+      } catch (err) {
+        console.warn("Snapshot failed", err);
+      }
+    })();
+  }, [state]);
 
   const items = useMemo(() => state?.items ?? [], [state?.items]);
   const purchases = useMemo(() => state?.purchases ?? [], [state?.purchases]);
@@ -132,6 +177,30 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
     [persist, state]
   );
 
+  const applyCountResults = useCallback(
+    (updates: { id: string; quantity: number }[], at: string) => {
+      const cur = stateRef.current;
+      if (!cur || !updates.length) return;
+      const map = new Map(updates.map((u) => [u.id, Math.max(0, Math.round(u.quantity * 100) / 100)]));
+      persist(
+        { ...cur, items: cur.items.map((i) => (map.has(i.id) ? { ...i, quantity: map.get(i.id)!, lastCountedAt: at } : i)) },
+        "edit",
+        { noLog: true }
+      );
+    },
+    [persist]
+  );
+
+  const revertQuantities = useCallback(
+    (updates: { id: string; quantity: number }[]) => {
+      const cur = stateRef.current;
+      if (!cur || !updates.length) return;
+      const map = new Map(updates.map((u) => [u.id, u.quantity]));
+      persist({ ...cur, items: cur.items.map((i) => (map.has(i.id) ? { ...i, quantity: map.get(i.id)! } : i)) }, "edit", { noLog: true });
+    },
+    [persist]
+  );
+
   const confirmCount = useCallback(
     (id: string, quantity: number) => {
       if (!state) return;
@@ -142,7 +211,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
         items: state.items.map((i) =>
           i.id === id ? { ...i, quantity: q, lastCountedAt: now } : i
         ),
-      });
+      }, "edit", { via: "quick count" });
     },
     [persist, state]
   );
@@ -158,7 +227,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
           const nextQty = i.quantity < min ? Math.max(min, 1) : i.quantity + 1;
           return { ...i, quantity: nextQty };
         }),
-      });
+      }, "edit", { via: "restock" });
     },
     [persist, state]
   );
@@ -247,7 +316,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
         items: nextItems,
         purchases: [purchase, ...(state.purchases ?? [])],
         receipts: state.receipts ?? [],
-      });
+      }, "edit", { via: "purchase" });
       return purchase;
     },
     [buildPurchase, persist, state]
@@ -320,7 +389,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
         items: nextItems,
         purchases: [...newPurchases, ...(state.purchases ?? [])],
         receipts: [receipt, ...(state.receipts ?? [])],
-      });
+      }, "edit", { via: "receipt" });
       return { receiptId, purchases: newPurchases };
     },
     [buildPurchase, persist, state]
@@ -395,6 +464,87 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
     [persist, state]
   );
 
+  const trashItem = useCallback(
+    (id: string) => {
+      const cur = stateRef.current;
+      if (!cur) return;
+      persist({
+        ...cur,
+        items: cur.items.map((i) => {
+          if (i.id !== id) return i;
+          // archived:true keeps it hidden on app versions that predate Recently Deleted.
+          const next: InventoryItem = { ...i, archived: true, trashedAt: new Date().toISOString() };
+          if (i.archived) next.restoreArchived = true;
+          else delete next.restoreArchived;
+          return next;
+        }),
+      });
+    },
+    [persist]
+  );
+
+  const recoverItem = useCallback(
+    (id: string) => {
+      const cur = stateRef.current;
+      if (!cur) return;
+      persist({
+        ...cur,
+        items: cur.items.map((i) => {
+          if (i.id !== id) return i;
+          const next: InventoryItem = { ...i, archived: Boolean(i.restoreArchived) };
+          delete next.trashedAt;
+          delete next.restoreArchived;
+          return next;
+        }),
+      });
+    },
+    [persist]
+  );
+
+  // Recently Deleted: after 30 days an item is deleted for good (the old,
+  // permanent delete). Runs only once this device is synced (or sync is off),
+  // and only after a fresh snapshot.
+  const purgeStarted = useRef(false);
+  useEffect(() => {
+    if (!state || purgeStarted.current) return;
+    const cutoff = Date.now() - TRASH_DAYS * 86_400_000;
+    const expired = state.items.filter((i) => i.trashedAt && Date.parse(i.trashedAt) < cutoff).map((i) => i.id);
+    if (!expired.length) return;
+    const ready = () => {
+      const st = getSyncStatus();
+      return !st.configured || st.phase === "off" || (st.phase === "idle" && st.pending === 0 && st.lastSyncAt != null);
+    };
+    const run = async () => {
+      if (purgeStarted.current) return;
+      purgeStarted.current = true;
+      unsub();
+      try {
+        await snapshotReady.current;
+        const cur = stateRef.current;
+        if (!cur) return;
+        const now = Date.now() - TRASH_DAYS * 86_400_000;
+        const ids = new Set(cur.items.filter((i) => i.trashedAt && Date.parse(i.trashedAt) < now).map((i) => i.id));
+        if (!ids.size) return;
+        await saveSnapshot("before-purge", await buildBackupJson(cur), cur.items.length);
+        const latest = stateRef.current!;
+        persist({
+          ...latest,
+          items: latest.items.filter((i) => !ids.has(i.id)),
+          purchases: (latest.purchases ?? []).filter((p) => !ids.has(p.itemId)),
+        });
+        for (const id of ids) void deletePhotosForItem(id);
+      } catch (err) {
+        console.warn("Recently Deleted clean-up skipped", err);
+        purgeStarted.current = false;
+      }
+    };
+    const unsub = subscribeSyncStatus(() => {
+      if (ready()) void run();
+    });
+    if (ready()) void run();
+    return unsub;
+  }, [state, persist]);
+
   const moveToFolder = useCallback(
     (id: string, folder: string) => {
       updateItem(id, { folder });
@@ -412,6 +562,8 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
     async (data: unknown) => {
       const next = importState(data);
       persist(next, "import");
+      // Format v6: merge the count sessions + log (never replaces what's here).
+      if (data && typeof data === "object" && !Array.isArray(data)) importCounts((data as { counts?: unknown }).counts);
       const photos =
         data && typeof data === "object" && !Array.isArray(data)
           ? ((data as { photos?: Record<string, string> }).photos ?? null)
@@ -432,6 +584,15 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       }, "import");
     },
     [persist, state?.purchases, state?.receipts]
+  );
+
+  const archivedItems = useMemo(
+    () => items.filter((i) => i.archived && !i.trashedAt).sort((a, b) => a.name.localeCompare(b.name)),
+    [items]
+  );
+  const trashedItems = useMemo(
+    () => items.filter((i) => i.trashedAt).sort((a, b) => (b.trashedAt ?? "").localeCompare(a.trashedAt ?? "")),
+    [items]
   );
 
   const value: InventoryContextValue = {
@@ -460,6 +621,12 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
     reset,
     importJson,
     replaceAll,
+    archivedItems,
+    trashedItems,
+    trashItem,
+    recoverItem,
+    applyCountResults,
+    revertQuantities,
   };
 
   return (

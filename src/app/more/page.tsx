@@ -7,7 +7,7 @@ import { Icon } from "@/components/ui/Icon";
 import { SyncSection } from "@/components/SyncSection";
 
 export default function MorePage() {
-  const { lowStockItems, ideaItems } = useInventory();
+  const { lowStockItems, ideaItems, archivedItems, trashedItems } = useInventory();
 
   return (
     <Page title="More">
@@ -40,6 +40,29 @@ export default function MorePage() {
             href="/add"
             leading={<IconTile color="#0071e3"><Icon name="plus" size={18} strokeWidth={2.4} /></IconTile>}
             title="Add Item"
+            chevron
+          />
+        </ListSection>
+
+        <ListSection>
+          <ListRow
+            href="/count/history"
+            leading={<IconTile color="#5e5ce6"><Icon name="list" size={18} strokeWidth={2} /></IconTile>}
+            title="Count History"
+            chevron
+          />
+          <ListRow
+            href="/more/archived"
+            leading={<IconTile color="#8e8e93"><Icon name="archivebox" size={18} strokeWidth={2} /></IconTile>}
+            title="Archived"
+            trailing={<CountBadge count={archivedItems.length} />}
+            chevron
+          />
+          <ListRow
+            href="/more/deleted"
+            leading={<IconTile color="#d70015"><Icon name="trash" size={18} strokeWidth={2} /></IconTile>}
+            title="Recently Deleted"
+            trailing={<CountBadge count={trashedItems.length} />}
             chevron
           />
         </ListSection>

@@ -72,6 +72,10 @@ export function normalizeItem(raw: Partial<InventoryItem> & { id: string; name: 
     image: resolveImage(raw),
     productUrl: sanitizeProductUrl(raw.productUrl),
     ...(Array.isArray(raw.photoOrder) ? { photoOrder: sanitizePhotoOrder(raw.id, raw.photoOrder) } : {}),
+    // Recently Deleted (added in format v6). Only present when set, so items that
+    // were never deleted keep exactly the fields they had before.
+    ...(typeof raw.trashedAt === "string" && raw.trashedAt ? { trashedAt: raw.trashedAt } : {}),
+    ...(raw.restoreArchived === true ? { restoreArchived: true } : {}),
   };
 }
 

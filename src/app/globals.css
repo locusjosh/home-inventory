@@ -229,7 +229,34 @@ input[type="search"]::-webkit-search-cancel-button {
   animation: pin-shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
 }
 
+/* Count stepper: the next card slides in from the side it came from */
+@keyframes slide-from-right {
+  from { opacity: 0; transform: translateX(28px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes slide-from-left {
+  from { opacity: 0; transform: translateX(-28px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.animate-slide-from-right {
+  animation: slide-from-right 0.28s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+.animate-slide-from-left {
+  animation: slide-from-left 0.28s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+@keyframes pop-in {
+  0% { opacity: 0; transform: scale(0.6); }
+  60% { opacity: 1; transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+.animate-pop-in {
+  animation: pop-in 0.42s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .animate-slide-from-right,
+  .animate-slide-from-left,
+  .animate-pop-in,
   .animate-pin-shake,
   .animate-fade-up,
   .animate-sheet-up,

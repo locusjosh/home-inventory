@@ -19,6 +19,12 @@ const TITLES: Record<string, string> = {
   "/receipt": "Receipt",
   "/data": "Data",
   "/add": "New Item",
+  "/count/history": "History",
+  "/count/item": "Item History",
+  "/count/session": "Count",
+  "/count/review": "Review",
+  "/more/archived": "Archived",
+  "/more/deleted": "Recently Deleted",
 };
 
 function prevTitle(current: string): string | null {
@@ -43,6 +49,7 @@ export function Page({
   title,
   subtitle,
   back,
+  leading,
   actions,
   children,
   hideLargeTitle,
@@ -51,6 +58,8 @@ export function Page({
   title: string;
   subtitle?: ReactNode;
   back?: Back;
+  /** Custom leading bar item (used instead of a back button). */
+  leading?: ReactNode;
   actions?: ReactNode;
   children: ReactNode;
   hideLargeTitle?: boolean;
@@ -73,7 +82,7 @@ export function Page({
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const showBar = Boolean(back || actions) || scrolled;
+  const showBar = Boolean(back || actions || leading) || scrolled;
   const inlineTitle = hideLargeTitle || scrolled;
 
   return (
@@ -86,7 +95,7 @@ export function Page({
       >
         <div className="relative mx-auto flex h-11 max-w-2xl items-center justify-between px-2">
           <div className="z-10 flex min-w-0 items-center">
-            {back ? (
+            {leading ? leading : back ? (
               back.useHistory ? (
                 <button
                   type="button"

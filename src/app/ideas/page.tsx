@@ -14,7 +14,7 @@ import { Icon } from "@/components/ui/Icon";
 import { STOCK_FOLDERS, type InventoryItem } from "@/lib/types";
 
 export default function IdeasPage() {
-  const { ideaItems, moveToFolder, archiveItem, deleteItem } = useInventory();
+  const { ideaItems, moveToFolder, archiveItem, trashItem } = useInventory();
   const [query, setQuery] = useState("");
   const [adding, setAdding] = useState<InventoryItem | null>(null);
   const [menu, setMenu] = useState<InventoryItem | null>(null);
@@ -133,7 +133,7 @@ export default function IdeasPage() {
         open={Boolean(confirmDelete)}
         onClose={() => setConfirmDelete(null)}
         title={confirmDelete ? `Delete “${confirmDelete.name}”?` : undefined}
-        message="This can’t be undone."
+        message="It moves to Recently Deleted, where you can recover it for 30 days."
         actions={
           confirmDelete
             ? [
@@ -141,8 +141,8 @@ export default function IdeasPage() {
                   label: "Delete Idea",
                   destructive: true,
                   onSelect: () => {
-                    deleteItem(confirmDelete.id);
-                    flash("Deleted");
+                    trashItem(confirmDelete.id);
+                    flash("Moved to Recently Deleted");
                   },
                 },
               ]

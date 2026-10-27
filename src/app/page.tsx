@@ -11,6 +11,9 @@ import { ActionSheet } from "@/components/ui/Sheet";
 import { Icon } from "@/components/ui/Icon";
 import { STOCK_FOLDERS } from "@/lib/types";
 import { isLowStock, needsCount } from "@/lib/utils";
+import { activeSession } from "@/lib/counts/store";
+import { sessionProgress } from "@/lib/counts/model";
+import { useCountsVersion } from "@/lib/counts/useCounts";
 
 type SortMode = "name" | "low" | "recent";
 type Filter = "all" | "low" | "needs" | string;
@@ -27,6 +30,9 @@ export default function HomePage() {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortMode>("name");
   const [sortOpen, setSortOpen] = useState(false);
+  useCountsVersion();
+  const counting = activeSession();
+  const cp = counting ? sessionProgress(counting) : null;
 
   const roomCount = useMemo(
     () => Object.keys(folderCounts).filter((k) => (folderCounts[k] ?? 0) > 0).length,
@@ -85,7 +91,17 @@ export default function HomePage() {
       }
     >
       <div className="space-y-3">
-        {needsCountItems.length > 0 ? (
+        {counting && cp ? (
+          <Link
+            href="/count"
+            data-testid="home-resume-count"
+            className="pressable focus-ring inline-flex min-h-tap items-center gap-2 rounded-full bg-tint-fill pl-3.5 pr-3 text-subhead font-semibold text-white"
+          >
+            <Icon name="checklist" size={18} strokeWidth={2} />
+            <span className="tabular-nums">Count in progress · {cp.counted + cp.skipped} of {cp.total} · Resume</span>
+            <Icon name="chevron.right" size={14} strokeWidth={2.6} />
+          </Link>
+        ) : needsCountItems.length > 0 ? (
           <Link
             href="/count"
             className="pressable focus-ring inline-flex min-h-tap items-center gap-2 rounded-full bg-tint-soft pl-3.5 pr-3 text-subhead font-semibold text-tint"
