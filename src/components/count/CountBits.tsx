@@ -105,7 +105,7 @@ export function useToast() {
   const node = msg ? (
     <div
       role="status"
-      className="animate-fade-in fixed left-1/2 top-[calc(env(safe-area-inset-top)+52px)] z-[75] -translate-x-1/2 whitespace-nowrap rounded-full bg-black/80 px-4 py-2.5 text-footnote font-semibold text-white backdrop-blur"
+      className="animate-fade-in fixed left-1/2 top-[calc(env(safe-area-inset-top)+52px)] z-[75] -translate-x-1/2 whitespace-nowrap toast-pill rounded-full px-4 py-2.5 text-footnote font-semibold "
     >
       {msg}
     </div>

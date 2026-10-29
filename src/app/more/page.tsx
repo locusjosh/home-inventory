@@ -1,6 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useInventory } from "@/context/InventoryContext";
+import { Switch } from "@/components/ui/Controls";
+import { readSolidSurfaces, writeSolidSurfaces } from "@/lib/solidSurfaces";
 import { Page } from "@/components/ui/Page";
 import { CountBadge, IconTile, ListRow, ListSection } from "@/components/ui/List";
 import { Icon } from "@/components/ui/Icon";
@@ -8,6 +11,8 @@ import { SyncSection } from "@/components/SyncSection";
 
 export default function MorePage() {
   const { lowStockItems, ideaItems, archivedItems, trashedItems } = useInventory();
+  const [solid, setSolid] = useState(false);
+  useEffect(() => setSolid(readSolidSurfaces()), []);
 
   return (
     <Page title="More">
@@ -68,6 +73,25 @@ export default function MorePage() {
         </ListSection>
 
         <SyncSection />
+
+        <ListSection header="Display" footer="Turns off the see-through glass on this device only. It isn’t synced.">
+          <ListRow
+            leading={<IconTile color="#3d5af1"><Icon name="circle.lefthalf" size={18} strokeWidth={2} /></IconTile>}
+            title="Solid Surfaces"
+            trailing={
+              <span data-testid="solid-surfaces">
+                <Switch
+                  checked={solid}
+                  label="Solid Surfaces"
+                  onChange={(v) => {
+                    setSolid(v);
+                    writeSolidSurfaces(v);
+                  }}
+                />
+              </span>
+            }
+          />
+        </ListSection>
 
         <ListSection>
           <ListRow

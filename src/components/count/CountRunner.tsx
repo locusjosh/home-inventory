@@ -201,7 +201,7 @@ export function CountRunner({ session, onPause }: { session: CountSession; onPau
           <>
             {/* Packshot on a small plate (not a full-width white slab); shrinks on shorter screens so the stepper always clears the action bar. */}
             <div className="flex justify-center pb-1 pt-5 [@media(max-height:639px)]:pt-3 [@media(max-height:519px)]:hidden">
-              <div className="photo-plate h-[148px] w-[148px] overflow-hidden rounded-[22px] [@media(min-height:800px)]:h-[188px] [@media(min-height:800px)]:w-[188px] [@media(max-height:759px)]:h-[104px] [@media(max-height:759px)]:w-[104px] [@media(max-height:639px)]:h-[64px] [@media(max-height:639px)]:w-[64px] [@media(max-height:639px)]:rounded-[12px]">
+              <div className="photo-plate h-[clamp(104px,calc(100dvh_-_600px),244px)] w-[clamp(104px,calc(100dvh_-_600px),244px)] overflow-hidden rounded-[24px] [@media(max-height:639px)]:h-[64px] [@media(max-height:639px)]:w-[64px] [@media(max-height:639px)]:rounded-[12px]">
                 <ItemImage item={item} aspect="aspect-square" rounded="rounded-none" className="h-full w-full" symbolSize={48} />
               </div>
             </div>
@@ -265,7 +265,7 @@ export function CountRunner({ session, onPause }: { session: CountSession; onPau
       </section>
 
       {/* spacer so the bottom panel never covers content */}
-      <div className={compact ? "h-[84px]" : "h-[124px]"} aria-hidden />
+      <div className={compact ? "h-[84px]" : "h-[132px]"} aria-hidden />
 
       <div
         className="ios-bar glass-float fixed inset-x-3 z-40 mx-auto max-w-md"
@@ -305,7 +305,7 @@ export function CountRunner({ session, onPause }: { session: CountSession; onPau
         ) : (
           <>
             <div className="mx-auto max-w-2xl px-4 pt-3">
-              <Button variant="primary" size="lg" block onClick={confirm} disabled={!item} data-testid="count-confirm">
+              <Button variant="primary" size="lg" block onClick={confirm} disabled={!item} data-testid="count-confirm" className="min-h-[56px] rounded-[18px] text-[18px] tracking-[-0.3px]">
                 {st === "counted" ? "Update Count" : "Confirm Count"}
               </Button>
             </div>
@@ -365,7 +365,7 @@ export function CountRunner({ session, onPause }: { session: CountSession; onPau
           <div className="space-y-4" data-testid="jump-list">
             {groups.map((g) => (
               <section key={g.room}>
-                <p className="px-4 pb-1.5 text-footnote font-semibold text-label-2">{g.room}</p>
+                <p className="px-4 pb-1.5 eyebrow text-label-2">{g.room}</p>
                 <ul className="ios-group glass overflow-hidden rounded-card">
                   {g.rows.map((r) => {
                     const ln = session.lines[r.id];

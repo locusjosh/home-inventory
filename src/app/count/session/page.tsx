@@ -79,7 +79,7 @@ function SessionInner() {
             </p>
           </div>
         ) : (
-          <div className="rounded-card bg-bg-grouped-2 px-4 py-3.5">
+          <div className="glass rounded-card px-4 py-3.5">
             <div className="flex items-center justify-between gap-3">
               <p className="text-headline text-label">{SCOPE_LABEL(s.scope)}</p>
               {statusTag}
@@ -103,11 +103,11 @@ function SessionInner() {
             <StatTile label="Total Off By" value={formatQty(t.abs)} sub="units, ignoring sign" />
           </div>
         ) : s.status === "cancelled" ? (
-          <p className="rounded-card bg-bg-grouped-2 px-4 py-4 text-subhead text-label-2">
+          <p className="glass rounded-card px-4 py-4 text-subhead text-label-2">
             This count was cancelled after {prog.counted} of {plural(prog.total, "item")}. No quantities were changed.
           </p>
         ) : (
-          <div className="rounded-card bg-bg-grouped-2 px-4 py-4">
+          <div className="glass rounded-card px-4 py-4">
             <p className="text-subhead tabular-nums text-label-2">{prog.counted} counted · {prog.skipped} skipped · {prog.pending} left</p>
             <Button variant="primary" block className="mt-3" onClick={() => router.push("/count/")}>Resume Count</Button>
           </div>

@@ -29,7 +29,7 @@ export default function RecentlyDeletedPage() {
           <p className="px-4 pb-1.5 text-footnote text-label-2">
             Items are kept here for {TRASH_DAYS} days with their photos and purchase history, then deleted for good.
           </p>
-          <ul className="ios-group overflow-hidden rounded-card bg-bg-grouped-2" data-testid="deleted-list">
+          <ul className="ios-group glass overflow-hidden rounded-card" data-testid="deleted-list">
             {trashedItems.map((item) => {
               const d = daysLeft(item);
               return (

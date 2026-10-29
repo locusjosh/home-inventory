@@ -173,7 +173,7 @@ export function PhotoGallery({
           ) : null}
           {busy ? (
             <div className="absolute inset-0 flex items-center justify-center rounded-[12px] bg-black/30" aria-live="polite">
-              <span className="rounded-full bg-bg-grouped-2 px-4 py-2 text-subhead font-semibold text-label">Preparing photo…</span>
+              <span className="toast-pill rounded-full px-4 py-2 text-subhead font-semibold">Preparing photo…</span>
             </div>
           ) : null}
         </div>

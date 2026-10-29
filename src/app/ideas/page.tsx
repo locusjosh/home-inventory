@@ -49,7 +49,7 @@ export default function IdeasPage() {
       {toast ? (
         <div
           role="status"
-          className="animate-fade-in fixed left-1/2 top-[calc(env(safe-area-inset-top)+52px)] z-[55] -translate-x-1/2 rounded-full bg-black/80 px-4 py-2.5 text-footnote font-semibold text-white backdrop-blur"
+          className="animate-fade-in fixed left-1/2 top-[calc(env(safe-area-inset-top)+52px)] z-[55] -translate-x-1/2 toast-pill rounded-full px-4 py-2.5 text-footnote font-semibold "
         >
           {toast}
         </div>
@@ -59,10 +59,10 @@ export default function IdeasPage() {
 
       {filtered.length ? (
         <>
-          <p className="px-4 pb-1.5 pt-5 text-footnote font-semibold text-label-2">
+          <p className="px-4 pb-1.5 pt-5 eyebrow text-label-2">
             {filtered.length} {filtered.length === 1 ? "idea" : "ideas"}
           </p>
-          <ul className="ios-group overflow-hidden rounded-card bg-bg-grouped-2">
+          <ul className="ios-group glass overflow-hidden rounded-card">
             {filtered.map((item) => (
               <li key={item.id} className="ios-row flex items-center">
                 <Link href={itemHref(item.id)} className="pressable shrink-0 py-2 pl-4" aria-label={`${item.name} details`}>

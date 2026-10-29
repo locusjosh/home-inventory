@@ -34,7 +34,7 @@ export const viewport: Viewport = {
 };
 
 /** Apply appearance before paint: stored override, else follow the system. */
-const themeScript = `(function(){try{var k='home-inventory-theme';var s=localStorage.getItem(k);var m=window.matchMedia('(prefers-color-scheme: dark)');var apply=function(){var v=localStorage.getItem(k);var d=v==='dark'||(v!=='light'&&m.matches);document.documentElement.classList.toggle('dark',d);};apply();m.addEventListener&&m.addEventListener('change',apply);window.__applyTheme=apply;}catch(e){}})();`;
+const themeScript = `(function(){try{var k='home-inventory-theme';var s=localStorage.getItem(k);var m=window.matchMedia('(prefers-color-scheme: dark)');var apply=function(){var v=localStorage.getItem(k);var d=v==='dark'||(v!=='light'&&m.matches);document.documentElement.classList.toggle('dark',d);};apply();m.addEventListener&&m.addEventListener('change',apply);window.__applyTheme=apply;document.documentElement.classList.toggle('solid',localStorage.getItem('home-inventory-solid-surfaces')==='1');}catch(e){}})();`;
 
 export default function RootLayout({
   children,

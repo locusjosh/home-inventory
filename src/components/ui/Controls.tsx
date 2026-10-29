@@ -33,7 +33,7 @@ export function SegmentedControl<T extends string>({
             onClick={() => onChange(o.value)}
             className={`focus-ring min-h-tap truncate rounded-[9px] px-2 text-subhead font-semibold transition ${
               active
-                ? "bg-bg-grouped-2 text-label shadow-[0_3px_8px_rgba(0,0,0,0.12),0_3px_1px_rgba(0,0,0,0.04)] dark:bg-[#636366]"
+                ? "bg-bg-grouped-2 text-label shadow-[inset_0_1px_0_var(--glass-edge),0_3px_8px_rgba(0,0,0,0.14),0_1px_1px_rgba(0,0,0,0.06)] dark:bg-[#2c303d]"
                 : "text-label"
             }`}
           >
@@ -62,7 +62,7 @@ export function Switch({
       aria-checked={checked}
       aria-label={label}
       onClick={() => onChange(!checked)}
-      className={`focus-ring relative inline-flex h-[31px] w-[51px] shrink-0 items-center rounded-full transition-colors duration-200 ${
+      className={`focus-ring relative inline-flex h-[31px] w-[51px] shrink-0 items-center rounded-full transition-colors duration-200 before:absolute before:-inset-x-1 before:-inset-y-[7px] before:content-[''] ${
         checked ? "bg-sys-green" : "bg-fill"
       }`}
     >

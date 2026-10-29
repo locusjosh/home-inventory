@@ -146,11 +146,11 @@ function ReviewInner() {
         </ListSection>
 
         {/* keeps the last rows clear of the sticky bar */}
-        <div className="h-[76px]" aria-hidden />
+        <div className="h-[88px]" aria-hidden />
       </div>
 
-      <div className="ios-bar hairline-t fixed inset-x-0 z-40" style={{ bottom: "var(--tabbar-space)" }} data-testid="review-bar">
-        <div className="mx-auto grid max-w-2xl grid-cols-[auto_1fr] items-center gap-3 px-4 py-3">
+      <div className="ios-bar glass-float fixed inset-x-3 z-40 mx-auto max-w-md" style={{ bottom: "var(--tabbar-space)" }} data-testid="review-bar">
+        <div className="grid grid-cols-[auto_1fr] items-center gap-3 px-3 py-3">
           <Button variant="plain" onClick={() => editAt(session.itemIds[Math.max(0, session.pos)] ?? session.itemIds[0])}>
             Keep Counting
           </Button>

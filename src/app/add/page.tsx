@@ -102,7 +102,7 @@ export default function AddItemPage() {
       }
     >
       <form onSubmit={(e) => void submit(e)} className="space-y-6">
-        <div className="rounded-card bg-bg-grouped-2 p-3">
+        <div className="glass rounded-card p-3">
           <PhotoGallery
             idPrefix="add-photo"
             emptyClassName="h-40"
@@ -117,7 +117,7 @@ export default function AddItemPage() {
           />
         </div>
 
-        <div className="ios-group overflow-hidden rounded-card bg-bg-grouped-2">
+        <div className="ios-group glass overflow-hidden rounded-card">
           <FieldRow label="Name">
             <TextInput required value={name} onChange={(e) => setName(e.target.value)} placeholder="Paper Towels" autoFocus />
           </FieldRow>
@@ -132,7 +132,7 @@ export default function AddItemPage() {
           </FieldRow>
         </div>
 
-        <div className="ios-group overflow-hidden rounded-card bg-bg-grouped-2">
+        <div className="ios-group glass overflow-hidden rounded-card">
           <div className="ios-row flex items-center">
             <div className="ios-row-inner ml-4 flex min-h-tap flex-1 items-center justify-between gap-3 py-1 pr-3">
               <span className="text-body text-label">Quantity</span>
@@ -149,7 +149,7 @@ export default function AddItemPage() {
           </FieldRow>
         </div>
 
-        <div className="ios-group overflow-hidden rounded-card bg-bg-grouped-2">
+        <div className="ios-group glass overflow-hidden rounded-card">
           <FieldRow label="Price">
             <TextInput type="number" min={0} step="0.01" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Optional" />
           </FieldRow>
