@@ -31,6 +31,14 @@ export const FOLDERS: FolderName[] = [...STOCK_FOLDERS, SUGGESTED_FOLDER];
 /** Folders used in count mode — stock only. */
 export const COUNT_FOLDERS: FolderName[] = [...STOCK_FOLDERS];
 
+/** One extra product link shown as a button after the Default (`productUrl`). */
+export type ItemLink = {
+  /** 1–24 chars, shown on the button. Empty → store name from the URL. */
+  label: string;
+  /** Normalised https URL (open-only, never fetched). */
+  url: string;
+};
+
 export type InventoryItem = {
   id: string;
   sortlyId?: string | null;
@@ -53,6 +61,13 @@ export type InventoryItem = {
   image?: string | null;
   /** Optional product page (open-only, never fetched). Normalised https URL. */
   productUrl?: string | null;
+  /**
+   * Extra product links (max 6), shown as buttons after the Default button.
+   * Always passed through sanitizeItemLinks(); omitted (not []) when empty so
+   * items without links keep exactly the fields they had before. Older app
+   * versions drop it locally but never delete it in the cloud (see sync/meta.ts).
+   */
+  links?: ItemLink[];
   /**
    * Gallery order (max 4). Entries are "bundled" (the seed packshot in `image`)
    * or IndexedDB photo keys. Undefined = legacy/default order, derived at runtime.
