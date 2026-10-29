@@ -91,7 +91,7 @@ export function Page({
         className={`sticky top-0 z-40 transition-[background-color,box-shadow] duration-200 ${
           scrolled ? "ios-bar hairline-b" : ""
         } ${showBar ? "" : "pointer-events-none"}`}
-        style={{ paddingTop: "env(safe-area-inset-top)" }}
+        style={{ paddingTop: "var(--sat)" }}
       >
         <div className="relative mx-auto flex h-11 max-w-2xl items-center justify-between px-2">
           <div className="z-10 flex min-w-0 items-center">

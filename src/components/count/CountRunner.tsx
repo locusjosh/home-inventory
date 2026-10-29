@@ -190,7 +190,7 @@ export function CountRunner({ session, onPause }: { session: CountSession; onPau
 
       <section
         key={itemId}
-        className={`glass mt-1 overflow-hidden rounded-[26px] ${dir === "right" ? "animate-slide-from-right" : dir === "left" ? "animate-slide-from-left" : ""}`}
+        className={`glass glass-lift mt-1 overflow-hidden rounded-[26px] ${dir === "right" ? "animate-slide-from-right" : dir === "left" ? "animate-slide-from-left" : ""}`}
         aria-live="polite"
         style={{ touchAction: "pan-y" }}
         onTouchStart={onTouchStart}
@@ -201,7 +201,7 @@ export function CountRunner({ session, onPause }: { session: CountSession; onPau
           <>
             {/* Packshot on a small plate (not a full-width white slab); shrinks on shorter screens so the stepper always clears the action bar. */}
             <div className="flex justify-center pb-1 pt-5 [@media(max-height:639px)]:pt-3 [@media(max-height:519px)]:hidden">
-              <div className="photo-plate h-[clamp(104px,calc(100dvh_-_600px),244px)] w-[clamp(104px,calc(100dvh_-_600px),244px)] overflow-hidden rounded-[24px] [@media(max-height:639px)]:h-[64px] [@media(max-height:639px)]:w-[64px] [@media(max-height:639px)]:rounded-[12px]">
+              <div className="photo-plate h-[clamp(80px,calc(100dvh_-_600px_-_var(--sat)_-_var(--sab)),244px)] w-[clamp(80px,calc(100dvh_-_600px_-_var(--sat)_-_var(--sab)),244px)] overflow-hidden rounded-[24px] [@media(max-height:639px)]:h-[64px] [@media(max-height:639px)]:w-[64px] [@media(max-height:639px)]:rounded-[12px]">
                 <ItemImage item={item} aspect="aspect-square" rounded="rounded-none" className="h-full w-full" symbolSize={48} />
               </div>
             </div>
@@ -348,7 +348,7 @@ export function CountRunner({ session, onPause }: { session: CountSession; onPau
           </button>
         }
       >
-        <div className="sticky top-0 z-10 -mx-4 bg-bg-grouped px-4 pb-3 pt-2">
+        <div className="sticky top-0 z-10 -mx-4 bg-glass-strong px-4 pb-3 pt-2">
           <SegmentedControl<Filter>
             value={filter}
             onChange={setFilter}

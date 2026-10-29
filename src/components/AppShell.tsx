@@ -83,7 +83,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 href={tab.href}
                 aria-current={active ? "page" : undefined}
                 className={`pressable focus-ring relative flex min-h-tap flex-col items-center justify-center gap-[3px] rounded-[22px] ${
-                  active ? "text-tint" : "text-label-2"
+                  active ? "text-[color:var(--tab-active)]" : "text-label-2"
                 }`}
               >
                 {active ? (
@@ -100,7 +100,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     </span>
                   ) : null}
                 </span>
-                <span className={`relative text-caption2 leading-none tracking-[0.1px] sm:text-caption ${active ? "font-semibold" : "font-medium"}`}>
+                <span className={`relative text-caption2 font-semibold leading-none tracking-[0.1px] sm:text-caption ${active ? "" : "text-label"}`}>
                   {tab.label}
                 </span>
               </Link>

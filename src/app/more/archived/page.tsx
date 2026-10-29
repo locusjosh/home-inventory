@@ -32,7 +32,7 @@ export default function ArchivedPage() {
       {archivedItems.length ? (
         <>
           <SearchField value={q} onChange={setQ} placeholder="Search Archived" />
-          <p className="px-4 pb-1.5 pt-5 eyebrow text-label-2">
+          <p className="px-4 pb-1.5 pt-5 eyebrow-long text-label-2">
             {list.length} {list.length === 1 ? "item" : "items"} · hidden from Stock, Count and Restock
           </p>
           {list.length ? (

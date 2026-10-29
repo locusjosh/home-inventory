@@ -150,7 +150,7 @@ export function SearchField({
           type="button"
           aria-label="Clear search"
           onClick={() => onChange("")}
-          className="flex h-11 w-9 shrink-0 items-center justify-center text-label-3"
+          className="-mr-1.5 flex h-11 w-11 shrink-0 items-center justify-center text-label-3"
         >
           <Icon name="xmark.circle" size={18} />
         </button>

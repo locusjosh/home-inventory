@@ -500,7 +500,7 @@ export function InventoryChat(_props: InventoryChatProps = {}) {
       ) : null}
 
       {!tipDismissed ? (
-        <div className="mb-4 flex items-start gap-3 glass rounded-card p-4">
+        <div className="glass glass-lift mb-4 flex items-start gap-3 rounded-card p-4">
           <span className="mt-0.5 text-tint">
             <Icon name="info.circle" size={22} />
           </span>
@@ -537,7 +537,7 @@ export function InventoryChat(_props: InventoryChatProps = {}) {
             <div key={m.id} className={`flex flex-col ${mine ? "items-end" : "items-start"} ${lastOfRun ? "pb-2" : ""}`}>
               <div
                 className={`max-w-[80%] whitespace-pre-wrap break-words rounded-[18px] px-3.5 py-2 text-body ${
-                  mine ? "bg-tint-fill text-white" : "bg-bubble text-label"
+                  mine ? "bg-[linear-gradient(180deg,var(--tint-fill-2),var(--tint-fill))] text-white" : "glass text-label"
                 } ${lastOfRun ? (mine ? "rounded-br-[6px]" : "rounded-bl-[6px]") : ""}`}
               >
                 {m.text}
@@ -568,7 +568,7 @@ export function InventoryChat(_props: InventoryChatProps = {}) {
               <p className="min-w-0 flex-1 text-footnote text-label-2">{SILENT_MODE_TIP}</p>
               <button
                 type="button"
-                className="pressable min-h-tap shrink-0 px-2 text-subhead font-semibold text-tint"
+                className="pressable min-h-tap min-w-tap shrink-0 px-2 text-subhead font-semibold text-tint"
                 onClick={() => setShowSilentTip(false)}
               >
                 OK

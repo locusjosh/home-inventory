@@ -43,7 +43,7 @@ function CountHome() {
       {toastNode}
       <div className="space-y-6">
         {active ? (
-          <section className="glass overflow-hidden rounded-card p-4" data-testid="resume-card">
+          <section className="glass glass-lift overflow-hidden rounded-card p-4" data-testid="resume-card">
             <div className="flex items-center gap-3">
               <IconTile color="var(--tint-fill)" size={40}>
                 <Icon name="checklist" size={22} strokeWidth={2} />
@@ -66,7 +66,7 @@ function CountHome() {
             </Button>
           </section>
         ) : (
-          <section className="glass overflow-hidden rounded-card px-5 pb-5 pt-6 text-center">
+          <section className="glass glass-lift overflow-hidden rounded-card px-5 pb-5 pt-6 text-center">
             <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-tint-soft text-tint" aria-hidden>
               <Icon name="checklist" size={30} strokeWidth={2} />
             </span>

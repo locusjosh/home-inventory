@@ -237,7 +237,7 @@ export function PhotoGallery({
       ) : null}
 
       {full ? (
-        <p className="mt-2 px-1 text-footnote text-label-2">That’s {MAX_PHOTOS} photos — the most an item can have. Delete one to add another.</p>
+        <p className="mt-2 px-1 text-footnote text-label">That’s {MAX_PHOTOS} photos — the most an item can have. Delete one to add another.</p>
       ) : null}
 
       {error ? (

@@ -26,7 +26,7 @@ export function ItemCard({ item, onQuantity, readOnly }: Props) {
   const low = isLowStock(item);
   const needs = needsCount(item);
   return (
-    <article className="glass flex flex-col rounded-card p-2">
+    <article className="glass grid-card flex flex-col rounded-card p-2">
       <Link href={itemHref(item.id)} className="pressable focus-ring block rounded-plate">
         <ItemImage item={item} rounded="rounded-plate" className="photo-plate" />
         <div className="px-1.5 pb-1 pt-2.5">

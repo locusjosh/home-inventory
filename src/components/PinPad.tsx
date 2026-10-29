@@ -156,7 +156,7 @@ export function PinPad() {
             >
               <span className="text-[30px] font-normal leading-none tabular-nums">{k}</span>
               {LETTERS[k] ? (
-                <span className="mt-0.5 text-[10px] font-semibold tracking-[0.18em] text-label-2" aria-hidden>
+                <span className="mt-0.5 text-[10px] font-semibold tracking-[0.18em] text-label" aria-hidden>
                   {LETTERS[k]}
                 </span>
               ) : null}
