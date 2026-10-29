@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build && node scripts/gen-sw.mjs",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:links": "rm -rf .test-out && tsc -p tests && node --test .test-out/tests/*.test.js",
+    "check:links-plan": "rm -rf .test-out && tsc -p tests && node .test-out/tests/check-links-plan.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.109.0",

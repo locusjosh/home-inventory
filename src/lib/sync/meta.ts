@@ -52,7 +52,23 @@ export function cmpStamp(a: Stamp | undefined, b: Stamp | undefined): number {
   return a[1] === b[1] ? 0 : a[1] < b[1] ? -1 : 1;
 }
 
-const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+/** Same value with object keys in sorted order (arrays keep their order). */
+function canonical(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(canonical);
+  if (v && typeof v === "object") {
+    const o: Record<string, unknown> = {};
+    for (const k of Object.keys(v as Record<string, unknown>).sort()) o[k] = canonical((v as Record<string, unknown>)[k]);
+    return o;
+  }
+  return v;
+}
+
+/**
+ * Value equality for sync: object key order is ignored. Postgres jsonb hands
+ * objects back with its own key order (e.g. a link comes back as {url, label}),
+ * so a plain JSON.stringify compare would see a change that isn't one.
+ */
+export const same = (a: unknown, b: unknown) => JSON.stringify(canonical(a)) === JSON.stringify(canonical(b));
 
 function randomId() {
   const a = new Uint8Array(8);
@@ -278,7 +294,17 @@ export function lwwMerge(
   return { data, meta, localNewer, remoteChanged };
 }
 
-/** Stamps for a local item, filling any field that has none with time 0. */
+/**
+ * Stamps for a local item, filling any field that has none with time 0.
+ *
+ * DO NOT trim this (or `meta.items[id]`) to the fields this app version knows.
+ * Stamps for fields we don't know (e.g. `links` on a build that predates it)
+ * must be kept and pushed unchanged: the server only overwrites or deletes a
+ * field when the pushed stamp is strictly newer, so an equal stamp with no
+ * value leaves the cloud copy alone. Trimming would let a future version's
+ * fields be wiped by an older one. Guarded by tests/links.test.ts
+ * ("sync meta keeps unknown-field stamps").
+ */
 export function itemMeta(item: InventoryItem): FieldMeta {
   const m = getMeta();
   const fm = { ...(m.items[item.id] ?? {}) };

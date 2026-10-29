@@ -7,7 +7,8 @@ import { exportCounts } from "./counts/store";
  * Full JSON backup (format v6): items, purchases, receipts, every user photo on
  * this device, and the count sessions + count log. v6 only ADDS `counts`; files
  * from v3–v5 still import, and older app versions importing a v6 file simply
- * ignore `counts`.
+ * ignore `counts`. Items may carry the optional `links` field (still v6: older
+ * apps drop it on import; restoring a file without it clears it — the file wins).
  */
 export async function buildBackupJson(state: Pick<InventoryState, "items" | "purchases" | "receipts">): Promise<string> {
   let photos: Record<string, string> = {};

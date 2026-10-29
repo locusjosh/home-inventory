@@ -6,7 +6,7 @@ import { useInventory } from "@/context/InventoryContext";
 import { FOLDERS, type Attribute } from "@/lib/types";
 import { LogPurchaseSheet } from "@/components/LogPurchaseSheet";
 import { ItemPhotoEditor } from "@/components/ItemPhotoEditor";
-import { OpenProductLink, ProductUrlField } from "@/components/ProductLink";
+import { ItemLinkButtons, ItemLinksField, ProductUrlField } from "@/components/ProductLink";
 import { EmptyState } from "@/components/EmptyState";
 import { Page } from "@/components/ui/Page";
 import { ListRow, ListSection } from "@/components/ui/List";
@@ -106,7 +106,7 @@ export default function ItemDetailPage() {
               {needs ? <StatusTag tone="blue">Needs a count</StatusTag> : null}
               {item.archived && !trashed ? <StatusTag tone="gray">Archived</StatusTag> : null}
             </div>
-            {item.productUrl ? <OpenProductLink url={item.productUrl} className="mt-3" /> : null}
+            <ItemLinkButtons productUrl={item.productUrl} links={item.links} className="mt-3" />
           </div>
         </div>
 
@@ -179,6 +179,8 @@ export default function ItemDetailPage() {
             />
           </FieldRow>
         </ListSection>
+
+        <ItemLinksField links={item.links} onCommit={(links) => updateItem(item.id, { links })} />
 
         <ListSection
           header="Purchase History"

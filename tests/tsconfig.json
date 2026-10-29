@@ -1,0 +1,15 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "incremental": false,
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "target": "ES2020",
+    "rootDir": "..",
+    "outDir": "../.test-out",
+    "jsx": "react-jsx",
+    "plugins": []
+  },
+  "include": ["./*.ts"]
+}

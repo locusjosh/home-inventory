@@ -2,7 +2,7 @@ import type { InventoryItem, InventoryState, Purchase, ReceiptRecord } from "./t
 import seed from "../../data/seed.json";
 import photoMap from "../../data/photo-map.json";
 import photoOverrides from "../../data/photo-overrides.json";
-import { sanitizeProductUrl } from "./productUrl";
+import { sanitizeItemLinks, sanitizeProductUrl } from "./productUrl";
 import { sanitizePhotoOrder } from "./photoOrder";
 
 const STORAGE_KEY = "home-inventory-v1";
@@ -52,6 +52,11 @@ function resolveImage(
   return null;
 }
 
+function linksField(raw: unknown): { links?: InventoryItem["links"] } {
+  const links = sanitizeItemLinks(raw);
+  return links ? { links } : {};
+}
+
 export function normalizeItem(raw: Partial<InventoryItem> & { id: string; name: string }): InventoryItem {
   return {
     id: raw.id,
@@ -71,6 +76,8 @@ export function normalizeItem(raw: Partial<InventoryItem> & { id: string; name: 
     lastVendor: raw.lastVendor ?? raw.vendor ?? null,
     image: resolveImage(raw),
     productUrl: sanitizeProductUrl(raw.productUrl),
+    // Extra link buttons: only present when at least one valid link survives.
+    ...linksField(raw.links),
     ...(Array.isArray(raw.photoOrder) ? { photoOrder: sanitizePhotoOrder(raw.id, raw.photoOrder) } : {}),
     // Recently Deleted (added in format v6). Only present when set, so items that
     // were never deleted keep exactly the fields they had before.
