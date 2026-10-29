@@ -32,7 +32,7 @@
   --tint-glow: rgba(51, 82, 232, 0.28);
   --red: #e0241b;
   --red-text: #a30c25;
-  --orange: #b54300;
+  --orange: #923500; /* lightest burnt orange >= 4.5:1 on page, glass and sheets at the brightest orb */
   --green: #0f5627;
   --green-fill: #248a3d; /* fills under white glyphs (iOS green) */
   --orange-fill: #c2410c;
