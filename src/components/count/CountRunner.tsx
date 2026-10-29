@@ -348,7 +348,7 @@ export function CountRunner({ session, onPause }: { session: CountSession; onPau
           </button>
         }
       >
-        <div className="sticky top-0 z-10 -mx-4 bg-glass-strong px-4 pb-3 pt-2">
+        <div className="sticky top-0 z-10 -mx-4 bg-sheet-solid px-4 pb-3 pt-2">
           <SegmentedControl<Filter>
             value={filter}
             onChange={setFilter}

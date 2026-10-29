@@ -68,8 +68,8 @@ export default function CountHistoryPage() {
                 <ListRow
                   key={s.id}
                   leading={
-                    s.status === "completed" ? <IconTile color="#1f9d55"><Icon name="checkmark" size={17} strokeWidth={2.6} /></IconTile>
-                    : s.status === "reverted" ? <IconTile color="#c2410c"><Icon name="arrow.counterclockwise" size={17} strokeWidth={2.4} /></IconTile>
+                    s.status === "completed" ? <IconTile color="var(--green-fill)"><Icon name="checkmark" size={17} strokeWidth={2.6} /></IconTile>
+                    : s.status === "reverted" ? <IconTile color="var(--orange-fill)"><Icon name="arrow.counterclockwise" size={17} strokeWidth={2.4} /></IconTile>
                     : s.status === "cancelled" ? <IconTile color="#8e8e93"><Icon name="xmark" size={16} strokeWidth={2.6} /></IconTile>
                     : <IconTile color="var(--tint-fill)"><Icon name="checklist" size={17} strokeWidth={2.2} /></IconTile>
                   }

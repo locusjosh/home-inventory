@@ -171,7 +171,7 @@ export function ActionSheet({
         <button
           type="button"
           onClick={onClose}
-          className="pressable flex min-h-[57px] w-full items-center justify-center sheet-surface rounded-[20px] text-[20px] font-semibold leading-6 text-tint active:bg-fill-4"
+          className="pressable flex min-h-[57px] w-full items-center justify-center sheet-surface sheet-opaque rounded-[20px] text-[20px] font-semibold leading-6 text-tint active:bg-fill-4"
         >
           Cancel
         </button>

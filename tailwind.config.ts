@@ -70,6 +70,9 @@ const config: Config = {
         "sys-red-text": "var(--red-text)",
         "sys-orange": "var(--orange)",
         "sys-green": "var(--green)",
+        "sys-green-fill": "var(--green-fill)",
+        "sys-orange-fill": "var(--orange-fill)",
+        "sheet-solid": "var(--sheet-solid)",
         bubble: "var(--bubble)",
         /* Legacy aliases (kept so any older markup still maps to iOS tokens) */
         surface: {

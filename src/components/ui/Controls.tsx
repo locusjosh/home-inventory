@@ -63,7 +63,7 @@ export function Switch({
       aria-label={label}
       onClick={() => onChange(!checked)}
       className={`focus-ring relative inline-flex h-[31px] w-[51px] shrink-0 items-center rounded-full transition-colors duration-200 before:absolute before:-inset-x-1 before:-inset-y-[7px] before:content-[''] ${
-        checked ? "bg-sys-green" : "bg-fill"
+        checked ? "bg-sys-green-fill" : "bg-fill"
       }`}
     >
       <span

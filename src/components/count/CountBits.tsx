@@ -60,7 +60,7 @@ export function LineGlyph({ state, excluded }: { state: LineState; excluded?: bo
     );
   if (state === "counted")
     return (
-      <span className="flex h-[26px] w-[26px] items-center justify-center rounded-full bg-sys-green text-white" aria-label="Counted">
+      <span className="flex h-[26px] w-[26px] items-center justify-center rounded-full bg-sys-green-fill text-white" aria-label="Counted">
         <Icon name="checkmark" size={15} strokeWidth={3} />
       </span>
     );

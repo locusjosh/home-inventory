@@ -32,14 +32,17 @@
   --tint-glow: rgba(51, 82, 232, 0.28);
   --red: #e0241b;
   --red-text: #a30c25;
-  --orange: #8f2b00;
+  --orange: #b54300;
   --green: #0f5627;
+  --green-fill: #248a3d; /* fills under white glyphs (iOS green) */
+  --orange-fill: #c2410c;
   --bubble: rgba(28, 32, 48, 0.07);
 
   /* Glass recipe */
   --glass: rgba(255, 255, 255, 0.42); /* lighter than the page: orbs show through */
   --glass-sheen: rgba(255, 255, 255, 0.5);
-  --glass-strong: rgba(250, 251, 255, 0.92);
+  --glass-strong: rgba(250, 251, 255, 0.97);
+  --sheet-solid: #fafbff;
   --glass-solid: #ffffff;
   --glass-edge: rgba(255, 255, 255, 0.95); /* top + left border: lit edge */
   --glass-edge-low: rgba(20, 24, 40, 0.1); /* right + bottom border: shaded edge */
@@ -102,17 +105,20 @@ html.dark {
   --red-text: #ffb4ae; /* >= 4.5:1 at orb peak */
   --orange: #ffbb66;
   --green: #66e8a0;
+  --green-fill: #248a3d;
+  --orange-fill: #c2410c;
   --bubble: rgba(255, 255, 255, 0.08);
 
   --glass: rgba(255, 255, 255, 0.06); /* lighter than the page: orb colour shows through */
   --glass-sheen: rgba(255, 255, 255, 0.08);
   --glass-strong: rgba(24, 26, 34, 0.94);
+  --sheet-solid: #181a22;
   --glass-solid: #15171e;
   --glass-edge: rgba(255, 255, 255, 0.24);
   --glass-edge-low: rgba(255, 255, 255, 0.06);
   --glass-line: rgba(255, 255, 255, 0.08);
   --glass-shadow: 0 1px 1px rgba(0, 0, 0, 0.3), 0 12px 32px -12px rgba(0, 0, 0, 0.7);
-  --bar: rgba(16, 18, 24, 0.78); /* tab labels >= 4.5:1 over any photo */
+  --bar: rgba(16, 18, 24, 0.86); /* tab labels >= 4.5:1 over any photo */
   --tab-active: #c0caff;
   --bar-solid: #111319;
   --bar-border: rgba(255, 255, 255, 0.1);
@@ -270,16 +276,23 @@ input[type="search"]::-webkit-search-cancel-button {
       0 0 0 0.5px rgba(255, 255, 255, 0.08), 0 2px 6px -2px var(--tint-glow), 0 12px 28px -10px var(--tint-glow);
     color: #fff;
   }
-  /* Sheets: one blurred scrim behind, near-opaque surfaces on top */
-  /* Sheets: the scrim only dims (no full-screen blur) and sheet surfaces are
-     94% / 92% opaque, so a blur behind them would be invisible: 0 extra layers. */
+  /* Sheets: the scrim only dims (no full-screen blur). Each sheet surface frosts
+     only its own area (1 layer per surface) so page text behind it can't ghost through. */
   .scrim {
     background: var(--scrim);
   }
   .sheet-surface {
     background: var(--glass-strong);
+    -webkit-backdrop-filter: blur(30px) saturate(160%);
+    backdrop-filter: blur(30px) saturate(160%);
     border: 1px solid;
     border-color: var(--glass-edge) var(--glass-line) var(--glass-line) var(--glass-line);
+  }
+  /* Second surface in an action sheet (Cancel): opaque, so it adds no blur layer and nothing ghosts through */
+  .sheet-surface.sheet-opaque {
+    background: var(--sheet-solid);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
   .toast-pill {
     background: rgba(18, 20, 28, 0.92);
@@ -348,15 +361,15 @@ input[type="search"]::-webkit-search-cancel-button {
 
 /* ---- Fallbacks -------------------------------------------------------- */
 @media (prefers-reduced-transparency: reduce) {
-  .ios-bar { backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .ios-bar, .sheet-surface { backdrop-filter: none; -webkit-backdrop-filter: none; }
   .ios-bar { background: var(--bar-solid); }
-  .glass, .card-lux, .glass-strong, .sheet-surface { background: var(--glass-solid); }
+  .glass, .card-lux, .glass-strong, .sheet-surface, .bg-sheet-solid, .sheet-surface.sheet-opaque { background: var(--glass-solid); }
   body::before { background: var(--bg-grouped); }
 }
 /* "Solid Surfaces" (More > Display): device-local switch, same as the media query */
-html.solid .ios-bar { backdrop-filter: none; -webkit-backdrop-filter: none; }
+html.solid .ios-bar, html.solid .sheet-surface { backdrop-filter: none; -webkit-backdrop-filter: none; }
 html.solid .ios-bar { background: var(--bar-solid); }
-html.solid .glass, html.solid .card-lux, html.solid .glass-strong, html.solid .sheet-surface { background: var(--glass-solid); }
+html.solid .glass, html.solid .card-lux, html.solid .glass-strong, html.solid .sheet-surface, html.solid .bg-sheet-solid, html.solid .sheet-surface.sheet-opaque { background: var(--glass-solid); }
 html.solid body::before { background: var(--bg-grouped); }
 /* Browsers without backdrop-filter get the solid bar. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -369,6 +382,7 @@ html.solid body::before { background: var(--bg-grouped); }
 /* High contrast: stronger edges, solid surfaces. */
 @media (prefers-contrast: more) {
   .glass, .glass-strong, .card-lux, .sheet-surface, .glass-control { background: var(--glass-solid); border-color: var(--label-3); }
+  .bg-sheet-solid, .sheet-surface.sheet-opaque { background: var(--glass-solid); }
   .ios-bar { background: var(--bar-solid); }
 }
 
@@ -494,11 +508,6 @@ html.dark .sym-tile { color: var(--sym-fg-dark); }
   .accent-fill { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3); }
 }
 
-/* Home grid: let the browser skip rendering off-screen cards */
-.grid-card {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 300px;
-}
 /* Long section notes (sentences) stay sentence case */
 .eyebrow-long {
   font-size: 13px;

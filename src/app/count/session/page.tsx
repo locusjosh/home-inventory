@@ -70,7 +70,7 @@ function SessionInner() {
       <div className="space-y-6 pt-2">
         {justDone ? (
           <div className="flex flex-col items-center pt-2 text-center" data-testid="count-complete">
-            <span className={`animate-pop-in flex h-16 w-16 items-center justify-center rounded-full text-white ${s.status === "reverted" ? "bg-sys-orange" : "bg-sys-green"}`} aria-hidden>
+            <span className={`animate-pop-in flex h-16 w-16 items-center justify-center rounded-full text-white ${s.status === "reverted" ? "bg-sys-orange-fill" : "bg-sys-green-fill"}`} aria-hidden>
               <Icon name={s.status === "reverted" ? "arrow.counterclockwise" : "checkmark"} size={s.status === "reverted" ? 30 : 34} strokeWidth={3} />
             </span>
             <p className="mt-3 flex items-center gap-2 text-subhead text-label-2">
