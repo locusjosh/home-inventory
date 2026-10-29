@@ -560,7 +560,7 @@ export function InventoryChat(_props: InventoryChatProps = {}) {
       {/* Composer — pinned above the tab bar */}
       <div
         className="ios-bar hairline-t fixed inset-x-0 z-40"
-        style={{ bottom: "calc(49px + env(safe-area-inset-bottom))" }}
+        style={{ bottom: "var(--tabbar-space)" }}
       >
         <div className="mx-auto max-w-2xl px-3 pb-2 pt-2">
           {showSilentTip ? (

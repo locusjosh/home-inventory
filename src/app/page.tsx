@@ -84,9 +84,9 @@ export default function HomePage() {
         <Link
           href="/add"
           aria-label="Add item"
-          className="pressable focus-ring flex h-11 w-11 items-center justify-center rounded-full text-tint"
+          className="glass pressable focus-ring flex h-11 w-11 items-center justify-center rounded-full text-tint"
         >
-          <Icon name="plus" size={24} strokeWidth={2.2} />
+          <Icon name="plus" size={22} strokeWidth={2.4} />
         </Link>
       }
     >
@@ -95,7 +95,7 @@ export default function HomePage() {
           <Link
             href="/count"
             data-testid="home-resume-count"
-            className="pressable focus-ring inline-flex min-h-tap items-center gap-2 rounded-full bg-tint-fill pl-3.5 pr-3 text-subhead font-semibold text-white"
+            className="accent-fill pressable focus-ring inline-flex min-h-tap items-center gap-2 rounded-full pl-3.5 pr-3 text-subhead font-semibold"
           >
             <Icon name="checklist" size={18} strokeWidth={2} />
             <span className="tabular-nums">Count in progress · {cp.counted + cp.skipped} of {cp.total} · Resume</span>
@@ -104,7 +104,7 @@ export default function HomePage() {
         ) : needsCountItems.length > 0 ? (
           <Link
             href="/count"
-            className="pressable focus-ring inline-flex min-h-tap items-center gap-2 rounded-full bg-tint-soft pl-3.5 pr-3 text-subhead font-semibold text-tint"
+            className="glass pressable focus-ring inline-flex min-h-tap items-center gap-2 rounded-full pl-3.5 pr-3 text-subhead font-semibold text-tint"
           >
             <Icon name="checklist" size={18} strokeWidth={2} />
             <span className="tabular-nums">{needsCountItems.length} need a count</span>
@@ -133,7 +133,7 @@ export default function HomePage() {
       </div>
 
       {filtered.length > 0 ? (
-        <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
           {filtered.map((item) => (
             <ItemCard key={item.id} item={item} onQuantity={updateQuantity} />
           ))}

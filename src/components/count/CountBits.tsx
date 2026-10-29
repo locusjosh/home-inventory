@@ -42,7 +42,7 @@ export function QtyChange({ from, to, compact = false }: { from: number; to: num
 
 export function StatTile({ label, value, sub }: { label: string; value: ReactNode; sub?: ReactNode }) {
   return (
-    <div className="rounded-card bg-bg-grouped-2 px-4 py-3.5">
+    <div className="glass rounded-card px-4 py-3.5">
       <p className="text-footnote font-semibold text-label-2">{label}</p>
       <p className="mt-0.5 text-title1 tabular-nums text-label">{value}</p>
       {sub ? <p className="text-footnote text-label-2">{sub}</p> : null}

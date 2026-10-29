@@ -168,14 +168,14 @@ export function CountRunner({ session, onPause }: { session: CountSession; onPau
       {/* progress */}
       <div className="pt-1">
         <div
-          className="h-1 overflow-hidden rounded-full bg-fill-3"
+          className="glass-control h-1.5 overflow-hidden rounded-full"
           role="progressbar"
           aria-label="Count progress"
           aria-valuemin={0}
           aria-valuemax={total}
           aria-valuenow={done}
         >
-          <div className="h-full rounded-full bg-tint transition-[width] duration-300" style={{ width: `${total ? (done / total) * 100 : 0}%` }} />
+          <div className="h-full rounded-full bg-[linear-gradient(90deg,var(--tint-fill),var(--tint-fill-2))] shadow-[0_0_12px_var(--tint-glow)] transition-[width] duration-500 ease-out" style={{ width: `${total ? (done / total) * 100 : 0}%` }} />
         </div>
         <div className="mt-2 flex items-center justify-between text-footnote text-label-2">
           <span className="tabular-nums" data-testid="count-progress">
@@ -190,7 +190,7 @@ export function CountRunner({ session, onPause }: { session: CountSession; onPau
 
       <section
         key={itemId}
-        className={`mt-1 overflow-hidden rounded-card bg-bg-grouped-2 ${dir === "right" ? "animate-slide-from-right" : dir === "left" ? "animate-slide-from-left" : ""}`}
+        className={`glass mt-1 overflow-hidden rounded-[26px] ${dir === "right" ? "animate-slide-from-right" : dir === "left" ? "animate-slide-from-left" : ""}`}
         aria-live="polite"
         style={{ touchAction: "pan-y" }}
         onTouchStart={onTouchStart}
@@ -201,7 +201,7 @@ export function CountRunner({ session, onPause }: { session: CountSession; onPau
           <>
             {/* Packshot on a small plate (not a full-width white slab); shrinks on shorter screens so the stepper always clears the action bar. */}
             <div className="flex justify-center pb-1 pt-5 [@media(max-height:639px)]:pt-3 [@media(max-height:519px)]:hidden">
-              <div className="h-[132px] w-[132px] overflow-hidden rounded-[18px] shadow-[0_1px_3px_rgba(0,0,0,0.12)] ring-1 ring-black/5 dark:ring-white/10 [@media(max-height:759px)]:h-[104px] [@media(max-height:759px)]:w-[104px] [@media(max-height:639px)]:h-[64px] [@media(max-height:639px)]:w-[64px] [@media(max-height:639px)]:rounded-[12px]">
+              <div className="photo-plate h-[148px] w-[148px] overflow-hidden rounded-[22px] [@media(min-height:800px)]:h-[188px] [@media(min-height:800px)]:w-[188px] [@media(max-height:759px)]:h-[104px] [@media(max-height:759px)]:w-[104px] [@media(max-height:639px)]:h-[64px] [@media(max-height:639px)]:w-[64px] [@media(max-height:639px)]:rounded-[12px]">
                 <ItemImage item={item} aspect="aspect-square" rounded="rounded-none" className="h-full w-full" symbolSize={48} />
               </div>
             </div>
@@ -230,7 +230,7 @@ export function CountRunner({ session, onPause }: { session: CountSession; onPau
               </p>
 
               <div className="mt-5 flex items-center justify-center gap-5 [@media(max-height:639px)]:mt-3" data-testid="count-stepper">
-                <button type="button" aria-label="Decrease" onClick={() => bump(-1)} className="pressable focus-ring flex h-16 w-16 items-center justify-center rounded-full bg-fill-3 text-tint [@media(max-height:639px)]:h-14 [@media(max-height:639px)]:w-14">
+                <button type="button" aria-label="Decrease" onClick={() => bump(-1)} className="pressable focus-ring flex h-16 w-16 items-center justify-center rounded-full bg-tint-soft text-tint shadow-[inset_0_0_0_1px_var(--glass-line),inset_0_1px_0_var(--glass-edge)] [@media(max-height:639px)]:h-14 [@media(max-height:639px)]:w-14">
                   <Icon name="minus" size={28} strokeWidth={2.4} />
                 </button>
                 <input
@@ -245,9 +245,9 @@ export function CountRunner({ session, onPause }: { session: CountSession; onPau
                     const n = parseFloat(e.target.value);
                     setDraft(Number.isNaN(n) ? 0 : Math.max(0, n));
                   }}
-                  className="focus-ring h-16 w-24 rounded-[14px] bg-transparent text-center text-[44px] font-bold leading-none tabular-nums text-label outline-none"
+                  className="focus-ring h-16 w-28 rounded-[16px] bg-transparent text-center text-[52px] font-extrabold leading-none tracking-[-0.04em] tabular-nums text-label outline-none"
                 />
-                <button type="button" aria-label="Increase" onClick={() => bump(1)} className="pressable focus-ring flex h-16 w-16 items-center justify-center rounded-full bg-fill-3 text-tint [@media(max-height:639px)]:h-14 [@media(max-height:639px)]:w-14">
+                <button type="button" aria-label="Increase" onClick={() => bump(1)} className="pressable focus-ring flex h-16 w-16 items-center justify-center rounded-full bg-tint-soft text-tint shadow-[inset_0_0_0_1px_var(--glass-line),inset_0_1px_0_var(--glass-edge)] [@media(max-height:639px)]:h-14 [@media(max-height:639px)]:w-14">
                   <Icon name="plus" size={28} strokeWidth={2.4} />
                 </button>
               </div>
@@ -268,8 +268,8 @@ export function CountRunner({ session, onPause }: { session: CountSession; onPau
       <div className={compact ? "h-[84px]" : "h-[124px]"} aria-hidden />
 
       <div
-        className="ios-bar hairline-t fixed inset-x-0 z-40"
-        style={{ bottom: "calc(49px + env(safe-area-inset-bottom))" }}
+        className="ios-bar glass-float fixed inset-x-3 z-40 mx-auto max-w-md"
+        style={{ bottom: "var(--tabbar-space)" }}
         data-testid="count-panel"
       >
         {compact ? (
@@ -366,7 +366,7 @@ export function CountRunner({ session, onPause }: { session: CountSession; onPau
             {groups.map((g) => (
               <section key={g.room}>
                 <p className="px-4 pb-1.5 text-footnote font-semibold text-label-2">{g.room}</p>
-                <ul className="ios-group overflow-hidden rounded-card bg-bg-grouped-2">
+                <ul className="ios-group glass overflow-hidden rounded-card">
                   {g.rows.map((r) => {
                     const ln = session.lines[r.id];
                     return (

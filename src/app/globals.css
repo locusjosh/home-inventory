@@ -6,82 +6,146 @@
  * iOS semantic color tokens (light). Values follow UIKit system colors,
  * nudged where needed so text meets WCAG AA (≥ 4.5:1).
  */
+/*
+ * Glass theme tokens (feat/glass-redesign). Semantic names are unchanged so
+ * every screen keeps working; values are retuned for a deep graphite /
+ * frosted-glass look. Text tokens are checked for WCAG AA (>= 4.5:1) on the
+ * worst-case glass surface over the ambient gradient.
+ */
 :root {
   color-scheme: light;
-  --label: #000000;
-  --label-2: #636366; /* secondaryLabel — ≥4.5:1 on grouped bg and on tertiary fill */
-  --label-3: #848488; /* tertiaryLabel – glyphs only, never body text */
-  --separator: rgba(60, 60, 67, 0.29);
-  --bg-grouped: #f2f2f7; /* systemGroupedBackground */
-  --bg-grouped-2: #ffffff; /* secondarySystemGroupedBackground */
-  --bg-grouped-3: #f2f2f7; /* tertiarySystemGroupedBackground */
-  --fill: rgba(120, 120, 128, 0.2);
-  --fill-2: rgba(120, 120, 128, 0.16);
-  --fill-3: rgba(118, 118, 128, 0.12);
-  --fill-4: rgba(116, 116, 128, 0.08);
-  --tint: #005ec2; /* systemBlue, darkened so text tint ≥4.5:1 on grouped bg, bars and soft fill */
-  --tint-fill: #0071e3;
-  --tint-soft: rgba(0, 94, 194, 0.1);
-  --red: #e5231b; /* systemRed for badges (white text AA) */
-  --red-text: #d70015;
-  --orange: #c93400;
-  --green: #248a3d;
-  --bubble: #e9e9eb;
-  --bar: rgba(249, 249, 249, 0.82);
-  --bar-border: rgba(0, 0, 0, 0.18);
+  --label: #0b0c10;
+  --label-2: #565a66; /* >= 5.9:1 on light glass */
+  --label-3: #80838e; /* glyphs only, never body text */
+  --separator: rgba(20, 24, 40, 0.12);
+  --bg-grouped: #eceef3; /* solid base (sheets, fallbacks) */
+  --bg-grouped-2: #ffffff;
+  --bg-grouped-3: #f4f5f8;
+  --fill: rgba(28, 32, 48, 0.16);
+  --fill-2: rgba(28, 32, 48, 0.12);
+  --fill-3: rgba(28, 32, 48, 0.075);
+  --fill-4: rgba(28, 32, 48, 0.05);
+  --tint: #2d48d6; /* accent as text: 6.6:1 on white */
+  --tint-fill: #3352e8; /* accent fill, white text 5.6:1 */
+  --tint-fill-2: #4a64f5;
+  --tint-soft: rgba(51, 82, 232, 0.11);
+  --tint-glow: rgba(51, 82, 232, 0.28);
+  --red: #e0241b;
+  --red-text: #c8102e;
+  --orange: #b93800;
+  --green: #18733a; /* >= 5:1 on light glass and bars */
+  --bubble: rgba(28, 32, 48, 0.07);
+
+  /* Glass recipe */
+  --glass: rgba(255, 255, 255, 0.62);
+  --glass-strong: rgba(255, 255, 255, 0.8);
+  --glass-solid: #ffffff;
+  --glass-edge: rgba(255, 255, 255, 0.9); /* top highlight */
+  --glass-line: rgba(20, 24, 40, 0.08); /* hairline inner border */
+  --glass-shadow: 0 1px 2px rgba(20, 24, 40, 0.05), 0 8px 24px -8px rgba(20, 24, 40, 0.14);
+  --bar: rgba(246, 247, 251, 0.66);
+  --bar-solid: #f6f7fb;
+  --bar-border: rgba(20, 24, 40, 0.1);
+  --plate-ring: rgba(20, 24, 40, 0.06);
+  --ambient-1: rgba(90, 114, 255, 0.2);
+  --ambient-2: rgba(0, 190, 200, 0.12);
+  --ambient-3: rgba(255, 160, 120, 0.12);
+
+  /* Motion */
+  --spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Floating tab bar footprint (bars above it offset by this) */
+  --tabbar-h: 58px;
+  --tabbar-gap: max(10px, env(safe-area-inset-bottom));
+  --tabbar-space: calc(var(--tabbar-h) + var(--tabbar-gap) + 8px);
 
   /* legacy rgb triplets */
   --surface: 255 255 255;
-  --surface-2: 242 242 247;
-  --surface-3: 229 229 234;
-  --ink: 0 0 0;
-  --ink-muted: 108 108 112;
-  --accent: 0 113 227;
-  --accent-soft: 229 240 255;
-  --danger: 215 0 21;
-  --warn: 201 52 0;
+  --surface-2: 236 238 243;
+  --surface-3: 226 228 235;
+  --ink: 11 12 16;
+  --ink-muted: 86 90 102;
+  --accent: 51 82 232;
+  --accent-soft: 230 234 255;
+  --danger: 200 16 46;
+  --warn: 185 56 0;
 }
 
 html.dark {
   color-scheme: dark;
-  --label: #ffffff;
-  --label-2: #a1a1a8;
-  --label-3: #7c7c80;
-  --separator: rgba(84, 84, 88, 0.65);
-  --bg-grouped: #000000;
-  --bg-grouped-2: #1c1c1e;
-  --bg-grouped-3: #2c2c2e;
-  --fill: rgba(120, 120, 128, 0.36);
-  --fill-2: rgba(120, 120, 128, 0.32);
-  --fill-3: rgba(118, 118, 128, 0.24);
-  --fill-4: rgba(118, 118, 128, 0.18);
-  --tint: #4aa3ff;
-  --tint-fill: #0070e0;
-  --tint-soft: rgba(74, 163, 255, 0.16);
-  --red: #e5231b;
-  --red-text: #ff453a;
-  --orange: #ff9f0a;
-  --green: #30d158;
-  --bubble: #26252a;
-  --bar: rgba(22, 22, 24, 0.8);
-  --bar-border: rgba(255, 255, 255, 0.15);
+  --label: #f5f6fa;
+  --label-2: #a4a8b6; /* >= 7:1 on dark glass */
+  --label-3: #737786;
+  --separator: rgba(255, 255, 255, 0.09);
+  --bg-grouped: #07080c;
+  --bg-grouped-2: #15171e;
+  --bg-grouped-3: #1d2029;
+  --fill: rgba(255, 255, 255, 0.16);
+  --fill-2: rgba(255, 255, 255, 0.12);
+  --fill-3: rgba(255, 255, 255, 0.085);
+  --fill-4: rgba(255, 255, 255, 0.055);
+  --tint: #8fa2ff; /* accent as text: 7.6:1 on dark glass */
+  --tint-fill: #3d5af1; /* white text 5.0:1 */
+  --tint-fill-2: #4a64f5; /* gradient top: white text still 4.7:1 */
+  --tint-soft: rgba(124, 144, 255, 0.16);
+  --tint-glow: rgba(90, 114, 255, 0.45);
+  --red: #e0241b;
+  --red-text: #ff7a72; /* 4.7:1 on glass at ambient peak */
+  --orange: #ffa23a;
+  --green: #3ddc84;
+  --bubble: rgba(255, 255, 255, 0.08);
 
-  --surface: 28 28 30;
-  --surface-2: 0 0 0;
-  --surface-3: 58 58 60;
-  --ink: 255 255 255;
-  --ink-muted: 152 152 159;
-  --accent: 64 156 255;
-  --accent-soft: 20 40 70;
-  --danger: 255 69 58;
-  --warn: 255 159 10;
+  --glass: rgba(255, 255, 255, 0.06);
+  --glass-strong: rgba(28, 31, 40, 0.78);
+  --glass-solid: #15171e;
+  --glass-edge: rgba(255, 255, 255, 0.14);
+  --glass-line: rgba(255, 255, 255, 0.07);
+  --glass-shadow: 0 1px 1px rgba(0, 0, 0, 0.3), 0 12px 32px -12px rgba(0, 0, 0, 0.7);
+  --bar: rgba(16, 18, 24, 0.62);
+  --bar-solid: #111319;
+  --bar-border: rgba(255, 255, 255, 0.1);
+  --plate-ring: rgba(255, 255, 255, 0.1);
+  --ambient-1: rgba(70, 92, 255, 0.34);
+  --ambient-2: rgba(0, 170, 190, 0.16);
+  --ambient-3: rgba(170, 70, 255, 0.16);
+
+  --surface: 21 23 30;
+  --surface-2: 7 8 12;
+  --surface-3: 40 43 54;
+  --ink: 245 246 250;
+  --ink-muted: 164 168 182;
+  --accent: 143 162 255;
+  --accent-soft: 24 30 66;
+  --danger: 255 122 114;
+  --warn: 255 162 58;
 }
 
 html,
 body {
   max-width: 100vw;
   min-height: 100%;
+}
+html {
   background: var(--bg-grouped);
+}
+/* body stays transparent so the fixed ambient layer (z-index -1) shows */
+body {
+  background: transparent;
+}
+
+/* Ambient gradient: one fixed, non-blurred layer behind everything. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 45% at 12% -5%, var(--ambient-1), transparent 70%),
+    radial-gradient(55% 40% at 100% 38%, var(--ambient-2), transparent 70%),
+    radial-gradient(70% 45% at 30% 105%, var(--ambient-3), transparent 70%),
+    var(--bg-grouped);
 }
 
 body {
@@ -142,11 +206,46 @@ input[type="search"]::-webkit-search-cancel-button {
 }
 
 @layer components {
-  /* Translucent material for nav + tab bars */
+  /* ---- Glass recipe ------------------------------------------------------
+   * .glass        : translucent card. NO backdrop-filter (cards sit on the
+   *                 smooth ambient gradient, so blur would cost GPU for no
+   *                 visible gain). Depth = fill + hairline + top highlight.
+   * .ios-bar      : real frosted material (backdrop blur + saturation). Only
+   *                 nav bar (when scrolled), tab bar, runner action panel,
+   *                 sheets. Budget: <= 3 visible at once.
+   */
+  .glass {
+    background: var(--glass);
+    box-shadow: inset 0 0 0 1px var(--glass-line), inset 0 1px 0 var(--glass-edge), var(--glass-shadow);
+  }
+  .glass-strong {
+    background: var(--glass-strong);
+    box-shadow: inset 0 0 0 1px var(--glass-line), inset 0 1px 0 var(--glass-edge), var(--glass-shadow);
+  }
+  /* Small glass control (search field, chips, stepper wells) */
+  .glass-control {
+    background: var(--fill-3);
+    box-shadow: inset 0 0 0 1px var(--glass-line), inset 0 1px 0 var(--glass-edge);
+  }
   .ios-bar {
     background: var(--bar);
-    backdrop-filter: saturate(180%) blur(20px);
-    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+  }
+  /* Floating glass tab bar / action panel */
+  .glass-float {
+    border-radius: 26px;
+    box-shadow: inset 0 0 0 1px var(--glass-line), inset 0 1px 0 var(--glass-edge), 0 18px 40px -16px rgba(0, 0, 0, 0.45);
+  }
+  /* Accent button: confident gradient + soft glow */
+  .accent-fill {
+    background: linear-gradient(180deg, var(--tint-fill-2) -40%, var(--tint-fill) 60%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 8px 20px -8px var(--tint-glow);
+    color: #fff;
+  }
+  /* Product photo plate: white (packshots are shot on white) with soft depth */
+  .photo-plate {
+    box-shadow: inset 0 0 0 1px var(--plate-ring), 0 6px 18px -10px rgba(0, 0, 0, 0.35);
   }
   .hairline-t {
     box-shadow: inset 0 0.5px 0 var(--bar-border);
@@ -154,11 +253,15 @@ input[type="search"]::-webkit-search-cancel-button {
   .hairline-b {
     box-shadow: inset 0 -0.5px 0 var(--bar-border);
   }
+  /* Spring press feedback */
   .pressable {
-    transition: opacity 150ms ease, transform 150ms ease, background-color 150ms ease;
+    transition: transform 420ms var(--spring), opacity 180ms ease, background-color 180ms ease;
+    -webkit-tap-highlight-color: transparent;
   }
   .pressable:active {
-    opacity: 0.6;
+    transform: scale(0.965);
+    transition-duration: 90ms;
+    opacity: 0.85;
   }
   .focus-ring {
     outline: none;
@@ -167,17 +270,57 @@ input[type="search"]::-webkit-search-cancel-button {
     box-shadow: 0 0 0 3px var(--tint-soft), 0 0 0 1.5px var(--tint);
   }
   .skeleton {
-    @apply animate-pulse rounded-card;
-    background: var(--fill-3);
+    @apply rounded-card;
+    background: linear-gradient(100deg, var(--fill-4) 30%, var(--fill-2) 50%, var(--fill-4) 70%);
+    background-size: 300% 100%;
+    animation: shimmer 1.6s var(--ease-out) infinite;
   }
-  /* Legacy helper — iOS cards have no borders */
   .card-lux {
     @apply rounded-card;
-    background: var(--bg-grouped-2);
+    background: var(--glass);
+    box-shadow: inset 0 0 0 1px var(--glass-line), inset 0 1px 0 var(--glass-edge), var(--glass-shadow);
   }
   .ios-input {
     @apply w-full min-h-tap bg-transparent text-body text-label outline-none;
   }
+  /* Display type: tight tracking, heavy */
+  .display-title {
+    font-weight: 800;
+    letter-spacing: -0.035em;
+  }
+  .eyebrow {
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+}
+
+@keyframes shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+/* ---- Fallbacks -------------------------------------------------------- */
+@media (prefers-reduced-transparency: reduce) {
+  .ios-bar { background: var(--bar-solid); backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .glass, .card-lux { background: var(--glass-solid); }
+  .glass-strong { background: var(--glass-solid); }
+  body::before { background: var(--bg-grouped); }
+}
+/* Browsers without backdrop-filter get the solid bar. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .ios-bar { background: var(--bar-solid); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pressable, .pressable:active { transform: none; transition: opacity 120ms ease; }
+  .skeleton { animation: none; }
+}
+/* High contrast: stronger edges, solid surfaces. */
+@media (prefers-contrast: more) {
+  .glass, .glass-strong, .card-lux { background: var(--glass-solid); box-shadow: inset 0 0 0 1px var(--label-3); }
+  .ios-bar { background: var(--bar-solid); }
 }
 
 /* Row separators: hairline, inset from the leading text edge (iOS inset grouped) */
@@ -195,11 +338,11 @@ input[type="search"]::-webkit-search-cancel-button {
 }
 
 @keyframes fade-up {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
 }
 .animate-fade-up {
-  animation: fade-up 0.25s ease-out backwards;
+  animation: fade-up 0.32s var(--ease-out) backwards;
 }
 
 @keyframes sheet-up {
@@ -283,4 +426,11 @@ html.dark .sym-tile { color: var(--sym-fg-dark); }
   white-space: nowrap !important;
   border: 0 !important;
   opacity: 0;
+}
+
+/* Disabled accent button: neutral fill, readable label (no opacity) */
+.accent-fill:disabled {
+  background: var(--fill-3);
+  box-shadow: none;
+  color: var(--label-2);
 }

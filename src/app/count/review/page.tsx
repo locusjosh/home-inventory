@@ -149,7 +149,7 @@ function ReviewInner() {
         <div className="h-[76px]" aria-hidden />
       </div>
 
-      <div className="ios-bar hairline-t fixed inset-x-0 z-40" style={{ bottom: "calc(49px + env(safe-area-inset-bottom))" }} data-testid="review-bar">
+      <div className="ios-bar hairline-t fixed inset-x-0 z-40" style={{ bottom: "var(--tabbar-space)" }} data-testid="review-bar">
         <div className="mx-auto grid max-w-2xl grid-cols-[auto_1fr] items-center gap-3 px-4 py-3">
           <Button variant="plain" onClick={() => editAt(session.itemIds[Math.max(0, session.pos)] ?? session.itemIds[0])}>
             Keep Counting

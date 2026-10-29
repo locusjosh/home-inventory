@@ -100,7 +100,7 @@ export function ChipBar<T extends string>({
               aria-selected={active}
               onClick={() => onChange(o.value)}
               className={`pressable focus-ring inline-flex min-h-tap shrink-0 items-center gap-2 rounded-full px-4 text-subhead font-semibold ${
-                active ? "bg-label text-bg-grouped-2" : "bg-fill-3 text-label"
+                active ? "bg-label text-bg-grouped-2 shadow-[0_6px_16px_-8px_rgba(0,0,0,0.5)]" : "glass-control text-label"
               }`}
             >
               <span>{o.label}</span>
@@ -132,7 +132,7 @@ export function SearchField({
   placeholder?: string;
 }) {
   return (
-    <label className="relative flex min-h-tap items-center rounded-[10px] bg-fill-3 pl-2.5 pr-1.5">
+    <label className="glass-control relative flex min-h-tap items-center rounded-[14px] pl-3 pr-1.5">
       <span className="shrink-0 text-label-2">
         <Icon name="magnifyingglass" size={18} strokeWidth={2.2} />
       </span>
@@ -199,7 +199,7 @@ export function MiniStepper({
 }) {
   const fmt = Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, "");
   return (
-    <div className="flex items-center justify-between rounded-full bg-fill-4" role="group" aria-label={`${label} quantity`}>
+    <div className="glass-control flex items-center justify-between rounded-full" role="group" aria-label={`${label} quantity`}>
       <button
         type="button"
         aria-label={`Decrease ${label}`}

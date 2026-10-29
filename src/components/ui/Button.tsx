@@ -10,8 +10,8 @@ const base =
   "pressable focus-ring inline-flex select-none items-center justify-center gap-1.5 whitespace-nowrap font-semibold disabled:cursor-not-allowed";
 
 const sizes: Record<ButtonSize, string> = {
-  lg: "min-h-[50px] rounded-[12px] px-5 text-headline",
-  md: "min-h-tap rounded-[10px] px-4 text-body font-semibold",
+  lg: "min-h-[52px] rounded-[16px] px-5 text-headline",
+  md: "min-h-tap rounded-[13px] px-4 text-body font-semibold",
   sm: "min-h-tap rounded-full px-3.5 text-subhead font-semibold",
 };
 
@@ -20,13 +20,12 @@ const sizes: Record<ButtonSize, string> = {
  * neutral fill + secondary label so contrast stays ≥ 4.5:1.
  */
 const variants: Record<ButtonVariant, string> = {
-  primary:
-    "bg-tint-fill text-white disabled:bg-fill-3 disabled:text-label-2",
+  primary: "accent-fill",
   secondary:
     "bg-tint-soft text-tint disabled:bg-fill-3 disabled:text-label-2",
-  gray: "bg-fill-3 text-label disabled:text-label-2",
+  gray: "glass-control text-label disabled:text-label-2",
   destructive:
-    "bg-fill-3 text-sys-red-text disabled:text-label-2",
+    "glass-control text-sys-red-text disabled:text-label-2",
   plain: "bg-transparent text-tint disabled:text-label-2",
   "plain-destructive": "bg-transparent text-sys-red-text disabled:text-label-2",
 };
@@ -102,7 +101,7 @@ export function IconButton({
       aria-label={label}
       title={label}
       className={`pressable focus-ring inline-flex h-11 min-w-11 items-center justify-center rounded-full ${
-        filled ? "bg-fill-3" : ""
+        filled ? "glass-control" : ""
       } ${color} disabled:text-label-3 ${className}`}
       {...rest}
     >
