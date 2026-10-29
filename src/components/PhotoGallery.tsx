@@ -130,7 +130,7 @@ export function PhotoGallery({
           <div
             ref={pagerRef}
             onScroll={onScroll}
-            className="scrollbar-none flex aspect-[4/3] w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain rounded-[12px]"
+            className="photo-plate scrollbar-none flex aspect-[4/3] w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain rounded-plate"
             role="region"
             aria-roledescription="carousel"
             aria-label={`Photos of ${name}`}
@@ -159,13 +159,13 @@ export function PhotoGallery({
             ))}
           </div>
           {current === 0 ? (
-            <span className="pointer-events-none absolute left-2 top-2 rounded-full bg-bg-grouped-2 px-2.5 py-1 text-footnote font-semibold text-label shadow-[0_1px_4px_rgba(0,0,0,0.18)]">
+            <span className="pointer-events-none absolute left-2 top-2 rounded-full bg-black/60 px-2.5 py-1 text-footnote font-semibold text-white shadow-[0_1px_4px_rgba(0,0,0,0.18)]">
               Cover
             </span>
           ) : null}
           {count > 1 ? (
             <span
-              className="pointer-events-none absolute right-2 top-2 rounded-full bg-bg-grouped-2 px-2.5 py-1 text-footnote font-semibold tabular-nums text-label shadow-[0_1px_4px_rgba(0,0,0,0.18)]"
+              className="pointer-events-none absolute right-2 top-2 rounded-full bg-black/60 px-2.5 py-1 text-footnote font-semibold tabular-nums text-white shadow-[0_1px_4px_rgba(0,0,0,0.18)]"
               data-testid="photo-position"
             >
               {current + 1} of {count}
@@ -173,7 +173,7 @@ export function PhotoGallery({
           ) : null}
           {busy ? (
             <div className="absolute inset-0 flex items-center justify-center rounded-[12px] bg-black/30" aria-live="polite">
-              <span className="rounded-full bg-bg-grouped-2 px-4 py-2 text-subhead font-semibold text-label">Preparing photo…</span>
+              <span className="toast-pill rounded-full px-4 py-2 text-subhead font-semibold">Preparing photo…</span>
             </div>
           ) : null}
         </div>
@@ -207,7 +207,7 @@ export function PhotoGallery({
               onClick={() => setAddOpen(true)}
               disabled={busy}
               aria-label="Add Photo"
-              className="pressable focus-ring flex h-14 w-14 shrink-0 items-center justify-center rounded-[10px] bg-fill-3 text-tint disabled:text-label-2"
+              className="glass-control pressable focus-ring flex h-14 w-14 shrink-0 items-center justify-center rounded-[12px] text-tint disabled:text-label-2"
             >
               <Icon name="plus" size={24} strokeWidth={2.2} />
             </button>
@@ -220,7 +220,7 @@ export function PhotoGallery({
 
       {/* Per-photo controls */}
       {count > 0 && cur ? (
-        <div className="mt-2 flex items-center justify-between rounded-[12px] bg-fill-4 px-1">
+        <div className="glass-control mt-2 flex items-center justify-between rounded-[14px] px-1">
           <IconButton label="Move photo left" onClick={() => { onMove(current, current - 1); select(current - 1); }} disabled={busy || current === 0}>
             <Icon name="chevron.left" size={20} strokeWidth={2.4} />
           </IconButton>
@@ -237,7 +237,7 @@ export function PhotoGallery({
       ) : null}
 
       {full ? (
-        <p className="mt-2 px-1 text-footnote text-label-2">That’s {MAX_PHOTOS} photos — the most an item can have. Delete one to add another.</p>
+        <p className="mt-2 px-1 text-footnote text-label">That’s {MAX_PHOTOS} photos — the most an item can have. Delete one to add another.</p>
       ) : null}
 
       {error ? (

@@ -33,7 +33,7 @@ export function SegmentedControl<T extends string>({
             onClick={() => onChange(o.value)}
             className={`focus-ring min-h-tap truncate rounded-[9px] px-2 text-subhead font-semibold transition ${
               active
-                ? "bg-bg-grouped-2 text-label shadow-[0_3px_8px_rgba(0,0,0,0.12),0_3px_1px_rgba(0,0,0,0.04)] dark:bg-[#636366]"
+                ? "bg-bg-grouped-2 text-label shadow-[inset_0_1px_0_var(--glass-edge),0_3px_8px_rgba(0,0,0,0.14),0_1px_1px_rgba(0,0,0,0.06)] dark:bg-[#2c303d]"
                 : "text-label"
             }`}
           >
@@ -62,8 +62,8 @@ export function Switch({
       aria-checked={checked}
       aria-label={label}
       onClick={() => onChange(!checked)}
-      className={`focus-ring relative inline-flex h-[31px] w-[51px] shrink-0 items-center rounded-full transition-colors duration-200 ${
-        checked ? "bg-sys-green" : "bg-fill"
+      className={`focus-ring relative inline-flex h-[31px] w-[51px] shrink-0 items-center rounded-full transition-colors duration-200 before:absolute before:-inset-x-1 before:-inset-y-[7px] before:content-[''] ${
+        checked ? "bg-sys-green-fill" : "bg-fill"
       }`}
     >
       <span
@@ -100,7 +100,7 @@ export function ChipBar<T extends string>({
               aria-selected={active}
               onClick={() => onChange(o.value)}
               className={`pressable focus-ring inline-flex min-h-tap shrink-0 items-center gap-2 rounded-full px-4 text-subhead font-semibold ${
-                active ? "bg-label text-bg-grouped-2" : "bg-fill-3 text-label"
+                active ? "bg-label text-bg-grouped-2 shadow-[0_6px_16px_-8px_rgba(0,0,0,0.5)]" : "glass-control text-label"
               }`}
             >
               <span>{o.label}</span>
@@ -132,7 +132,7 @@ export function SearchField({
   placeholder?: string;
 }) {
   return (
-    <label className="relative flex min-h-tap items-center rounded-[10px] bg-fill-3 pl-2.5 pr-1.5">
+    <label className="glass-control relative flex min-h-tap items-center rounded-[14px] pl-3 pr-1.5">
       <span className="shrink-0 text-label-2">
         <Icon name="magnifyingglass" size={18} strokeWidth={2.2} />
       </span>
@@ -150,7 +150,7 @@ export function SearchField({
           type="button"
           aria-label="Clear search"
           onClick={() => onChange("")}
-          className="flex h-11 w-9 shrink-0 items-center justify-center text-label-3"
+          className="-mr-1.5 flex h-11 w-11 shrink-0 items-center justify-center text-label-3"
         >
           <Icon name="xmark.circle" size={18} />
         </button>
@@ -199,7 +199,7 @@ export function MiniStepper({
 }) {
   const fmt = Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, "");
   return (
-    <div className="flex items-center justify-between rounded-full bg-fill-4" role="group" aria-label={`${label} quantity`}>
+    <div className="glass-control flex items-center justify-between rounded-full" role="group" aria-label={`${label} quantity`}>
       <button
         type="button"
         aria-label={`Decrease ${label}`}

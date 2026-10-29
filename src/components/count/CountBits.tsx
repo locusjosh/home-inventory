@@ -42,7 +42,7 @@ export function QtyChange({ from, to, compact = false }: { from: number; to: num
 
 export function StatTile({ label, value, sub }: { label: string; value: ReactNode; sub?: ReactNode }) {
   return (
-    <div className="rounded-card bg-bg-grouped-2 px-4 py-3.5">
+    <div className="glass rounded-card px-4 py-3.5">
       <p className="text-footnote font-semibold text-label-2">{label}</p>
       <p className="mt-0.5 text-title1 tabular-nums text-label">{value}</p>
       {sub ? <p className="text-footnote text-label-2">{sub}</p> : null}
@@ -60,7 +60,7 @@ export function LineGlyph({ state, excluded }: { state: LineState; excluded?: bo
     );
   if (state === "counted")
     return (
-      <span className="flex h-[26px] w-[26px] items-center justify-center rounded-full bg-sys-green text-white" aria-label="Counted">
+      <span className="flex h-[26px] w-[26px] items-center justify-center rounded-full bg-sys-green-fill text-white" aria-label="Counted">
         <Icon name="checkmark" size={15} strokeWidth={3} />
       </span>
     );
@@ -105,7 +105,7 @@ export function useToast() {
   const node = msg ? (
     <div
       role="status"
-      className="animate-fade-in fixed left-1/2 top-[calc(env(safe-area-inset-top)+52px)] z-[75] -translate-x-1/2 whitespace-nowrap rounded-full bg-black/80 px-4 py-2.5 text-footnote font-semibold text-white backdrop-blur"
+      className="animate-fade-in fixed left-1/2 top-[calc(env(safe-area-inset-top)+52px)] z-[75] -translate-x-1/2 whitespace-nowrap toast-pill rounded-full px-4 py-2.5 text-footnote font-semibold "
     >
       {msg}
     </div>

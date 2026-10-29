@@ -135,12 +135,12 @@ export default function RestockPage() {
           return (
             <section key={vendor}>
               <div className="flex items-end justify-between px-4 pb-1.5">
-                <h2 className="text-footnote font-semibold text-label-2">
+                <h2 className="eyebrow text-label-2">
                   {vendor === OTHER ? "No Store Set" : vendor}
                 </h2>
                 <span className="text-footnote tabular-nums text-label-2">{items.length}</span>
               </div>
-              <ul className="ios-group overflow-hidden rounded-card bg-bg-grouped-2">
+              <ul className="ios-group glass overflow-hidden rounded-card">
                 {shown.map((item) => {
                   const need = needToBuy(item);
                   const last = getLastPurchase(item.id);

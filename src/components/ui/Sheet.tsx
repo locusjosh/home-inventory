@@ -41,10 +41,10 @@ export function Sheet({
       <button
         type="button"
         aria-label="Close"
-        className="animate-fade-in absolute inset-0 cursor-default bg-black/40"
+        className="scrim animate-fade-in absolute inset-0 cursor-default"
         onClick={onClose}
       />
-      <div className="animate-sheet-up relative z-10 flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-[14px] bg-bg-grouped sm:rounded-[14px]">
+      <div className="animate-sheet-up relative z-10 flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden sheet-surface rounded-t-[24px] sm:rounded-[24px]">
         <div className="flex justify-center pt-1.5">
           <span className="h-[5px] w-9 rounded-full bg-fill" aria-hidden />
         </div>
@@ -99,14 +99,14 @@ export function ActionSheet({
       <button
         type="button"
         aria-label="Cancel"
-        className="animate-fade-in absolute inset-0 cursor-default bg-black/40"
+        className="scrim animate-fade-in absolute inset-0 cursor-default"
         onClick={onClose}
       />
       <div
         className="animate-sheet-up relative z-10 w-full max-w-lg space-y-2 px-2"
         style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
       >
-        <div className="overflow-hidden rounded-[14px] bg-bg-grouped-2">
+        <div className="sheet-surface overflow-hidden rounded-[20px]">
           {title || message ? (
             <div className="px-4 py-3.5 text-center">
               {title ? <p className="text-footnote font-semibold text-label-2">{title}</p> : null}
@@ -171,7 +171,7 @@ export function ActionSheet({
         <button
           type="button"
           onClick={onClose}
-          className="pressable flex min-h-[57px] w-full items-center justify-center rounded-[14px] bg-bg-grouped-2 text-[20px] font-semibold leading-6 text-tint active:bg-fill-4"
+          className="pressable flex min-h-[57px] w-full items-center justify-center sheet-surface sheet-opaque rounded-[20px] text-[20px] font-semibold leading-6 text-tint active:bg-fill-4"
         >
           Cancel
         </button>

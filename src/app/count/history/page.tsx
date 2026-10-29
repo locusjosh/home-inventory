@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import { useCounts } from "@/lib/counts/useCounts";
 import { shortDevice, type CountEntry } from "@/lib/counts/model";
 import { Page } from "@/components/ui/Page";
-import { ListRow, ListSection } from "@/components/ui/List";
+import { IconTile, ListRow, ListSection } from "@/components/ui/List";
+import { Icon } from "@/components/ui/Icon";
 import { SegmentedControl, StatusTag } from "@/components/ui/Controls";
 import { EmptyState } from "@/components/EmptyState";
 import { QtyChange, entrySourceLabel, fmtDay, fmtTime, itemHref, sessionHref, sessionSummary, sessionTitle } from "@/components/count/CountBits";
@@ -45,10 +46,33 @@ export default function CountHistoryPage() {
 
         {tab === "counts" ? (
           sessions.length ? (
+            <>
+            <section className="glass glass-lift flex items-center gap-3.5 rounded-card px-4 py-4" data-testid="history-summary">
+              <IconTile color="var(--tint-fill)" size={44}>
+                <Icon name="checklist" size={24} strokeWidth={2} />
+              </IconTile>
+              <div className="min-w-0 flex-1">
+                <p className="text-title3 tabular-nums text-label">
+                  {sessions.length} {sessions.length === 1 ? "count" : "counts"}
+                </p>
+                <p className="text-subhead text-label-2">
+                  {(() => {
+                    const done = sessions.find((x) => x.status === "completed" || x.status === "reverted");
+                    return done ? `Last finished ${fmtDay(done.endedAt ?? done.startedAt)}` : "None finished yet";
+                  })()}
+                </p>
+              </div>
+            </section>
             <ListSection>
               {sessions.map((s) => (
                 <ListRow
                   key={s.id}
+                  leading={
+                    s.status === "completed" ? <IconTile color="var(--green-fill)"><Icon name="checkmark" size={17} strokeWidth={2.6} /></IconTile>
+                    : s.status === "reverted" ? <IconTile color="var(--orange-fill)"><Icon name="arrow.counterclockwise" size={17} strokeWidth={2.4} /></IconTile>
+                    : s.status === "cancelled" ? <IconTile color="#8e8e93"><Icon name="xmark" size={16} strokeWidth={2.6} /></IconTile>
+                    : <IconTile color="var(--tint-fill)"><Icon name="checklist" size={17} strokeWidth={2.2} /></IconTile>
+                  }
                   href={sessionHref(s.id)}
                   title={sessionTitle(s)}
                   subtitle={sessionSummary(s)}
@@ -62,6 +86,7 @@ export default function CountHistoryPage() {
                 />
               ))}
             </ListSection>
+            </>
           ) : (
             <EmptyState icon="checklist" title="No Counts Yet" description="Counts you start from the Count tab show up here." />
           )

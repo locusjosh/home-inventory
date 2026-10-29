@@ -493,14 +493,14 @@ export function InventoryChat(_props: InventoryChatProps = {}) {
       {toast ? (
         <div
           role="status"
-          className="animate-fade-in fixed left-1/2 top-[calc(env(safe-area-inset-top)+52px)] z-[55] max-w-[90vw] -translate-x-1/2 rounded-full bg-black/80 px-4 py-2.5 text-center text-footnote font-semibold text-white backdrop-blur"
+          className="animate-fade-in fixed left-1/2 top-[calc(env(safe-area-inset-top)+52px)] z-[55] max-w-[90vw] -translate-x-1/2 toast-pill rounded-full px-4 py-2.5 text-center text-footnote font-semibold "
         >
           {toast}
         </div>
       ) : null}
 
       {!tipDismissed ? (
-        <div className="mb-4 flex items-start gap-3 rounded-card bg-bg-grouped-2 p-4">
+        <div className="glass glass-lift mb-4 flex items-start gap-3 rounded-card p-4">
           <span className="mt-0.5 text-tint">
             <Icon name="info.circle" size={22} />
           </span>
@@ -537,7 +537,7 @@ export function InventoryChat(_props: InventoryChatProps = {}) {
             <div key={m.id} className={`flex flex-col ${mine ? "items-end" : "items-start"} ${lastOfRun ? "pb-2" : ""}`}>
               <div
                 className={`max-w-[80%] whitespace-pre-wrap break-words rounded-[18px] px-3.5 py-2 text-body ${
-                  mine ? "bg-tint-fill text-white" : "bg-bubble text-label"
+                  mine ? "bg-[linear-gradient(180deg,var(--tint-fill-2),var(--tint-fill))] text-white" : "glass text-label"
                 } ${lastOfRun ? (mine ? "rounded-br-[6px]" : "rounded-bl-[6px]") : ""}`}
               >
                 {m.text}
@@ -559,16 +559,16 @@ export function InventoryChat(_props: InventoryChatProps = {}) {
 
       {/* Composer — pinned above the tab bar */}
       <div
-        className="ios-bar hairline-t fixed inset-x-0 z-40"
-        style={{ bottom: "calc(49px + env(safe-area-inset-bottom))" }}
+        className="ios-bar glass-float fixed inset-x-3 z-40 mx-auto max-w-md"
+        style={{ bottom: "var(--tabbar-space)" }}
       >
-        <div className="mx-auto max-w-2xl px-3 pb-2 pt-2">
+        <div className="px-2 pb-2 pt-2">
           {showSilentTip ? (
-            <div className="mb-2 flex items-center gap-2 rounded-[12px] bg-bg-grouped-2 py-1 pl-3 pr-1">
+            <div className="glass-control mb-2 flex items-center gap-2 rounded-[14px] py-1 pl-3 pr-1">
               <p className="min-w-0 flex-1 text-footnote text-label-2">{SILENT_MODE_TIP}</p>
               <button
                 type="button"
-                className="pressable min-h-tap shrink-0 px-2 text-subhead font-semibold text-tint"
+                className="pressable min-h-tap min-w-tap shrink-0 px-2 text-subhead font-semibold text-tint"
                 onClick={() => setShowSilentTip(false)}
               >
                 OK
@@ -595,7 +595,7 @@ export function InventoryChat(_props: InventoryChatProps = {}) {
                       key={chip}
                       type="button"
                       onClick={() => send(chip)}
-                      className="pressable focus-ring min-h-tap shrink-0 rounded-full bg-bg-grouped-2 px-4 text-subhead font-semibold text-label shadow-[inset_0_0_0_0.5px_var(--separator)]"
+                      className="glass-control pressable focus-ring min-h-tap shrink-0 rounded-full px-4 text-subhead font-semibold text-label"
                     >
                       {chip}
                     </button>
@@ -617,7 +617,7 @@ export function InventoryChat(_props: InventoryChatProps = {}) {
                 <Icon name={listening ? "stop" : "mic"} size={22} />
               </button>
             ) : null}
-            <div className="flex min-h-tap min-w-0 flex-1 items-center rounded-full bg-bg-grouped-2 pl-4 pr-1 shadow-[inset_0_0_0_0.5px_var(--separator)]">
+            <div className="glass-control flex min-h-tap min-w-0 flex-1 items-center rounded-full pl-4 pr-1">
               <input
                 ref={inputRef}
                 type="text"

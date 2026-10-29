@@ -104,7 +104,7 @@ export function StartCountSheet({
           </ListSection>
         ) : null}
 
-        <div className="rounded-card bg-bg-grouped-2 px-4 py-4 text-center">
+        <div className="glass rounded-card px-4 py-4 text-center">
           <p className="text-title2 tabular-nums text-label" data-testid="start-count-n">
             {n} {n === 1 ? "item" : "items"}
           </p>

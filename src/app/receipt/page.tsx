@@ -321,12 +321,12 @@ export default function ReceiptPage() {
       {phase === "capture" || phase === "error" ? (
         <section className="space-y-4">
           {previewUrl ? (
-            <div className="overflow-hidden rounded-card bg-bg-grouped-2 p-2">
+            <div className="glass overflow-hidden rounded-card p-2">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={previewUrl} alt="Receipt preview" className="max-h-[52vh] w-full rounded-[10px] object-contain" />
             </div>
           ) : (
-            <div className="flex flex-col items-center rounded-card bg-bg-grouped-2 px-6 py-10 text-center">
+            <div className="flex flex-col items-center glass rounded-card px-6 py-10 text-center">
               <span className="flex h-20 w-20 items-center justify-center rounded-full bg-tint-soft text-tint" aria-hidden>
                 <Icon name="camera" size={40} strokeWidth={1.6} />
               </span>
@@ -338,14 +338,14 @@ export default function ReceiptPage() {
           )}
 
           {error ? (
-            <p className="flex items-start gap-2 rounded-card bg-bg-grouped-2 px-4 py-3 text-subhead text-sys-red-text" role="alert">
+            <p className="flex items-start gap-2 glass rounded-card px-4 py-3 text-subhead text-sys-red-text" role="alert">
               <Icon name="exclamationmark.triangle" size={18} />
               <span>{error}</span>
             </p>
           ) : null}
 
           {preparing ? (
-            <p className="rounded-card bg-bg-grouped-2 px-4 py-3 text-center text-subhead text-label-2" aria-live="polite">
+            <p className="glass rounded-card px-4 py-3 text-center text-subhead text-label-2" aria-live="polite">
               Preparing photo…
             </p>
           ) : file ? (
@@ -376,7 +376,7 @@ export default function ReceiptPage() {
       ) : null}
 
       {phase === "reading" ? (
-        <section className="rounded-card bg-bg-grouped-2 px-6 py-10 text-center" aria-live="polite">
+        <section className="glass rounded-card px-6 py-10 text-center" aria-live="polite">
           <p className="text-headline text-label">{progressLabel}</p>
           <div className="mx-auto mt-4 h-1.5 max-w-xs overflow-hidden rounded-full bg-fill-3">
             <div className="h-full rounded-full bg-tint transition-all" style={{ width: `${Math.max(4, progress)}%` }} />
@@ -428,7 +428,7 @@ export default function ReceiptPage() {
                   <h3 className="text-footnote font-semibold text-label-2">Line {idx + 1}</h3>
                   {confTag(line.ocrConfidence)}
                 </div>
-                <div className="ios-group overflow-hidden rounded-card bg-bg-grouped-2">
+                <div className="ios-group glass overflow-hidden rounded-card">
                   <FieldRow label="Item" stacked>
                     <input
                       value={line.description}
@@ -569,7 +569,7 @@ export default function ReceiptPage() {
       ) : null}
 
       {phase === "done" ? (
-        <section className="flex flex-col items-center rounded-card bg-bg-grouped-2 px-6 py-10 text-center">
+        <section className="flex flex-col items-center glass rounded-card px-6 py-10 text-center">
           <span className="text-sys-green" aria-hidden>
             <Icon name="checkmark.circle" size={56} strokeWidth={1.6} />
           </span>

@@ -110,7 +110,7 @@ export function LogPurchaseSheet({
           </div>
         </div>
 
-        <div className="ios-group overflow-hidden rounded-card bg-bg-grouped-2">
+        <div className="ios-group glass overflow-hidden rounded-card">
           <FieldRow label="Price Paid">
             <span className="flex items-center text-body text-label-2">
               $
@@ -145,8 +145,8 @@ export function LogPurchaseSheet({
 
         {expanded ? (
           <section>
-            <h3 className="px-4 pb-1.5 text-footnote font-semibold text-label-2">Deal Details</h3>
-            <div className="ios-group overflow-hidden rounded-card bg-bg-grouped-2">
+            <h3 className="px-4 pb-1.5 eyebrow text-label-2">Deal Details</h3>
+            <div className="ios-group glass overflow-hidden rounded-card">
               <FieldRow label="Regular Price">
                 <TextInput type="number" inputMode="decimal" min={0} step="0.01" value={listPrice} onChange={(e) => setListPrice(e.target.value)} placeholder="Optional" />
               </FieldRow>

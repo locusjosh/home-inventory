@@ -70,7 +70,7 @@ function SessionInner() {
       <div className="space-y-6 pt-2">
         {justDone ? (
           <div className="flex flex-col items-center pt-2 text-center" data-testid="count-complete">
-            <span className={`animate-pop-in flex h-16 w-16 items-center justify-center rounded-full text-white ${s.status === "reverted" ? "bg-sys-orange" : "bg-sys-green"}`} aria-hidden>
+            <span className={`animate-pop-in flex h-16 w-16 items-center justify-center rounded-full text-white ${s.status === "reverted" ? "bg-sys-orange-fill" : "bg-sys-green-fill"}`} aria-hidden>
               <Icon name={s.status === "reverted" ? "arrow.counterclockwise" : "checkmark"} size={s.status === "reverted" ? 30 : 34} strokeWidth={3} />
             </span>
             <p className="mt-3 flex items-center gap-2 text-subhead text-label-2">
@@ -79,7 +79,7 @@ function SessionInner() {
             </p>
           </div>
         ) : (
-          <div className="rounded-card bg-bg-grouped-2 px-4 py-3.5">
+          <div className="glass rounded-card px-4 py-3.5">
             <div className="flex items-center justify-between gap-3">
               <p className="text-headline text-label">{SCOPE_LABEL(s.scope)}</p>
               {statusTag}
@@ -103,11 +103,11 @@ function SessionInner() {
             <StatTile label="Total Off By" value={formatQty(t.abs)} sub="units, ignoring sign" />
           </div>
         ) : s.status === "cancelled" ? (
-          <p className="rounded-card bg-bg-grouped-2 px-4 py-4 text-subhead text-label-2">
+          <p className="glass rounded-card px-4 py-4 text-subhead text-label-2">
             This count was cancelled after {prog.counted} of {plural(prog.total, "item")}. No quantities were changed.
           </p>
         ) : (
-          <div className="rounded-card bg-bg-grouped-2 px-4 py-4">
+          <div className="glass rounded-card px-4 py-4">
             <p className="text-subhead tabular-nums text-label-2">{prog.counted} counted · {prog.skipped} skipped · {prog.pending} left</p>
             <Button variant="primary" block className="mt-3" onClick={() => router.push("/count/")}>Resume Count</Button>
           </div>

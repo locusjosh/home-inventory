@@ -88,7 +88,7 @@ export default function ItemDetailPage() {
     >
       <div className="space-y-6 pt-2">
         {trashed ? (
-          <div className="flex items-center gap-3 rounded-card bg-bg-grouped-2 px-4 py-3" data-testid="trashed-banner">
+          <div className="glass flex items-center gap-3 rounded-card px-4 py-3" data-testid="trashed-banner">
             <div className="min-w-0 flex-1">
               <p className="text-headline text-label">In Recently Deleted</p>
               <p className="text-subhead text-label-2">{trashDaysLeft <= 1 ? "Deletes within a day" : `Deletes in ${trashDaysLeft} days`}</p>
@@ -96,7 +96,7 @@ export default function ItemDetailPage() {
             <Button variant="secondary" size="sm" onClick={() => recoverItem(item.id)}>Recover</Button>
           </div>
         ) : null}
-        <div className="overflow-hidden rounded-card bg-bg-grouped-2 p-3">
+        <div className="glass overflow-hidden rounded-card p-3">
           <ItemPhotoEditor item={item} />
           <div className="px-1 pb-1 pt-3">
             <h1 className="text-title1 text-label">{item.name}</h1>
@@ -110,7 +110,7 @@ export default function ItemDetailPage() {
           </div>
         </div>
 
-        <div className="ios-group overflow-hidden rounded-card bg-bg-grouped-2">
+        <div className="ios-group glass overflow-hidden rounded-card">
           <div className="ios-row flex items-center">
             <div className="ios-row-inner ml-4 flex min-h-[56px] flex-1 items-center justify-between gap-3 py-1.5 pr-3">
               <div>

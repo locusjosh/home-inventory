@@ -23,14 +23,14 @@ export function ListSection({
       {header || headerAction ? (
         <div className="flex min-h-[28px] items-end justify-between gap-3 px-4 pb-1.5">
           {header ? (
-            <h2 className="text-footnote font-semibold text-label-2">{header}</h2>
+            <h2 className={`${typeof header === "string" && header.trim().split(/\s+/).length > 3 ? "eyebrow-long" : "eyebrow"} text-label-2`}>{header}</h2>
           ) : (
             <span />
           )}
           {headerAction}
         </div>
       ) : null}
-      <div className="ios-group overflow-hidden rounded-card bg-bg-grouped-2">{children}</div>
+      <div className="ios-group glass overflow-hidden rounded-card">{children}</div>
       {footer ? <p className="px-4 pt-1.5 text-footnote text-label-2">{footer}</p> : null}
     </section>
   );
@@ -48,8 +48,8 @@ export function IconTile({
 }) {
   return (
     <span
-      className="inline-flex shrink-0 items-center justify-center rounded-[8px] text-white"
-      style={{ width: size, height: size, background: color }}
+      className="inline-flex shrink-0 items-center justify-center rounded-[9px] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.3)]"
+      style={{ width: size, height: size, background: `linear-gradient(180deg, rgba(255,255,255,0.2), rgba(255,255,255,0) 55%), ${color}` }}
       aria-hidden
     >
       {children}
