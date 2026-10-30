@@ -177,10 +177,14 @@ export function ItemLinksField({
 
   const commit = (next: LinkRow[]) => {
     const valid: ItemLink[] = [];
+    const seen = new Set<string>();
     const checked = next.map((r) => {
       if (!r.url.trim()) return { ...r, error: null };
       const res = normalizeLinkUrl(r.url);
       if (!res.ok || !res.url) return { ...r, error: res.ok ? null : res.error };
+      // UI only: say why a duplicate isn't saved instead of letting the row vanish.
+      if (seen.has(res.url)) return { ...r, url: res.url, error: "That link is already added." };
+      seen.add(res.url);
       valid.push({ label: r.label, url: res.url });
       return { ...r, url: res.url, error: null };
     });
@@ -223,7 +227,7 @@ export function ItemLinksField({
               onChange={(e) => update(r.key, { label: e.target.value })}
               onBlur={() => commit(rows)}
               enterKeyHint="next"
-              className="min-h-tap w-[36%] min-w-0 shrink-0 bg-transparent text-body text-label outline-none placeholder:text-label-2"
+              className="min-h-tap w-[38%] min-w-0 shrink-0 overflow-hidden text-ellipsis bg-transparent text-body text-label outline-none placeholder:text-label-2"
               data-testid="link-label-input"
             />
             <input
@@ -246,7 +250,7 @@ export function ItemLinksField({
                   (e.target as HTMLInputElement).blur();
                 }
               }}
-              className="min-h-tap min-w-0 flex-1 bg-transparent text-right text-body text-label outline-none placeholder:text-label-2"
+              className="min-h-tap min-w-0 flex-1 overflow-hidden text-ellipsis bg-transparent text-right text-body text-label outline-none placeholder:text-label-2"
               data-testid="link-url-input"
             />
             <IconButton
