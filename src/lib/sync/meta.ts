@@ -35,6 +35,14 @@ export type SyncMeta = {
   remotePhotos: Record<string, { sha: string; itemId: string; w?: number | null; h?: number | null }>;
   /** Local photo key → sha256 (computed once). */
   photoSha: Record<string, string>;
+  /**
+   * `lastSyncAt` as of the last sync completed by a links-aware build. When it
+   * differs from `lastSyncAt`, an older build (one that drops `links`) synced in
+   * between. Older builds keep this key untouched (getMeta spreads the stored object).
+   */
+  linksSyncAt?: number | null;
+  /** `cursor` as last set by a links-aware build's pull (same purpose as linksSyncAt). */
+  linksCursor?: string | null;
 };
 
 export const META_KEY = "home-inventory-sync-v1";
@@ -292,6 +300,41 @@ export function lwwMerge(
     }
   }
   return { data, meta, localNewer, remoteChanged };
+}
+
+/**
+ * Startup repair for links pulled by an older build. Builds without `links`
+ * drop the value locally but keep the cloud's stamp (as they must, see below),
+ * so after updating, equal stamps would stop the value ever being re-applied.
+ *
+ * Acts only when an older build may have pulled since this build last did
+ * (`lastSyncAt`/`cursor` moved without this build: `linksSyncAt`/`linksCursor`
+ * differ), so it runs once after an update and again only if an old cached
+ * build synced in between. Then, for items that have a `links`
+ * stamp but no `links` value, it forgets just that one stamp and clears the
+ * pull cursor so the next pull re-reads every row and re-applies the cloud
+ * value (a real deletion simply comes back as a deletion). It never touches
+ * items that have links, other fields, tombstones or the outbox, and pushes
+ * nothing. Any local change made under this build was pushed by the older
+ * build before its sync completed, so no newer local edit is lost.
+ * Returns how many stamps were cleared.
+ */
+export function repairDroppedLinks(state: InventoryState): number {
+  const m = getMeta();
+  if (m.linksSyncAt === m.lastSyncAt && m.linksCursor === m.cursor) return 0;
+  let n = 0;
+  for (const item of state.items) {
+    const fm = m.items[item.id];
+    if (fm?.links && item.links === undefined) {
+      delete fm.links;
+      n++;
+    }
+  }
+  if (n) m.cursor = null;
+  m.linksSyncAt = m.lastSyncAt;
+  m.linksCursor = m.cursor;
+  saveMeta(true);
+  return n;
 }
 
 /**

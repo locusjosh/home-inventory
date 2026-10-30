@@ -31,6 +31,7 @@ import { buildBackupJson } from "../backup";
 import {
   allLocalKeys,
   ensureBaseline,
+  repairDroppedLinks,
   getMeta,
   itemData,
   itemMeta,
@@ -140,7 +141,10 @@ const online = () => typeof navigator === "undefined" || navigator.onLine !== fa
 export function initSync(b: Bridge) {
   bridge = b;
   const state = b.getState();
-  if (state) ensureBaseline(state);
+  if (state) {
+    ensureBaseline(state);
+    repairDroppedLinks(state);
+  }
   if (!syncConfigured || started || typeof window === "undefined") return;
   started = true;
 
@@ -281,6 +285,7 @@ function onSignedIn(s: Session) {
     // Different account than last time: start its sync state fresh (local data is kept).
     m.userId = s.user.id;
     m.cursor = null;
+    m.linksCursor = null;
     m.uploaded = {};
     m.remotePhotos = {};
     setRemotePhotoKeys([]);
@@ -379,6 +384,7 @@ async function runSync() {
     if ((await outboxCount()) > 0) await push(c, uid);
     if (first) m.firstSyncDone.push(uid);
     m.lastSyncAt = Date.now();
+    m.linksSyncAt = m.lastSyncAt; // this build knows `links` (see repairDroppedLinks)
     saveMeta(true);
     backoff = 0;
     if (signedOutMeanwhile()) setStatus({ phase: "signed-out", lastSyncAt: m.lastSyncAt });
@@ -638,6 +644,7 @@ async function pull(c: SupabaseClient, uid: string) {
   await loadLocalIndex();
   const sideEffects = applyRemote(rows);
   m.cursor = maxStr ?? null;
+  m.linksCursor = m.cursor; // pulled by this links-aware build (see repairDroppedLinks)
   saveMeta(true);
   if (sideEffects.repush.length) await enqueue(sideEffects.repush);
   for (const id of sideEffects.deletedItems) await deletePhotosForItem(id, { fromSync: true });

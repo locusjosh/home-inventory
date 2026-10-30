@@ -263,3 +263,65 @@ test("jsonb key order: pulled links ({url,label}) cause no dirty field, re-push 
   assert.deepEqual(keys2, [], "key order alone never marks the item dirty");
   assert.deepEqual(getMeta().items[base.id].links, newer.links, "stamp unchanged by the no-op");
 });
+
+// ------------------------------------- M1: links pulled by an older build ---
+
+import { repairDroppedLinks } from "../src/lib/sync/meta";
+
+test("M1 repair: stale link stamps from an old-build pull are cleared once, then the re-pull re-applies links", () => {
+  const m = freshDevice();
+  const seed = getSeedState().items;
+  const a = seed[0], b = { ...seed[1], links: [{ label: "Walmart", url: WM }] }, c = seed[2];
+  const state: InventoryState = { items: [a, b, c], purchases: [], receipts: [], version: 7 };
+  recordLocalChanges(null, state, "edit");
+  const S: Stamp = [Date.now() + 1000, "cloud"];
+  // An OLD build pulled `links` for item a: value dropped, stamp kept; it then completed a sync.
+  m.items[a.id].links = S;
+  m.items[b.id].links = S; // b really has links: must be left alone
+  m.cursor = "2026-10-29T08:00:00.000Z";
+  m.lastSyncAt = 111;
+  const before = JSON.parse(JSON.stringify(m.items));
+  assert.equal(repairDroppedLinks(state), 1);
+  assert.equal("links" in m.items[a.id], false, "stale stamp cleared");
+  assert.deepEqual(m.items[b.id].links, S, "item with real links keeps its stamp");
+  for (const id of [a.id, b.id, c.id]) for (const f of Object.keys(before[id])) if (!(id === a.id && f === "links")) assert.deepEqual(m.items[id][f], before[id][f], `${id}.${f} untouched`);
+  assert.equal(m.cursor, null, "full re-pull once");
+  // idempotent: nothing more until an older build syncs again
+  assert.equal(repairDroppedLinks(state), 0);
+  // the re-pull applies the cloud links; no re-push
+  const cloud = { ...itemData(a), links: [{ url: HD, label: "Home Depot" }] };
+  const res = lwwMerge(itemData(a), itemMeta(a), cloud, { ...itemMeta(a), links: S });
+  assert.equal(res.remoteChanged, true);
+  assert.equal(res.localNewer, false);
+  const pulled = normalizeItem({ ...(res.data as Partial<InventoryItem>), id: a.id, name: a.name });
+  assert.deepEqual(pulled.links, [{ label: "Home Depot", url: HD }]);
+  m.items[a.id] = res.meta;
+  // simulate this build's pull + sync bookkeeping
+  m.cursor = "2026-10-29T09:00:00.000Z"; m.linksCursor = m.cursor; m.lastSyncAt = 222; m.linksSyncAt = 222;
+  assert.equal(repairDroppedLinks({ ...state, items: [pulled, b, c] }), 0);
+  assert.equal(m.cursor, "2026-10-29T09:00:00.000Z", "no extra re-pull");
+});
+
+test("M1 repair: runs again only if an older build synced in between; real deletions just come back", () => {
+  const m = freshDevice();
+  const a = getSeedState().items[0];
+  const state: InventoryState = { items: [a], purchases: [], receipts: [], version: 7 };
+  recordLocalChanges(null, state, "edit");
+  const D: Stamp = [Date.now() + 2000, "other"]; // a real deletion (no value in the cloud either)
+  m.items[a.id].links = D;
+  m.cursor = "c1"; m.linksCursor = "c1"; m.lastSyncAt = 5; m.linksSyncAt = 5;
+  assert.equal(repairDroppedLinks(state), 0, "this build synced last: no repair");
+  m.lastSyncAt = 6; m.cursor = "c2"; // an old cached build synced
+  assert.equal(repairDroppedLinks(state), 1);
+  assert.equal(m.cursor, null);
+  // re-pull of a real deletion: stamp comes back, value stays absent, nothing to push
+  const res = lwwMerge(itemData(a), itemMeta(a), itemData(a), { ...itemMeta(a), links: D });
+  assert.equal(res.remoteChanged, false);
+  assert.equal(res.localNewer, false);
+  assert.deepEqual(res.meta.links, D);
+  assert.equal(repairDroppedLinks(state), 0, "idempotent");
+  // never signed in / never synced: nothing to do
+  const m2 = freshDevice();
+  assert.equal(repairDroppedLinks({ ...state }), 0);
+  assert.equal(m2.cursor, null);
+});
